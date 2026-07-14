@@ -1,0 +1,118 @@
+From 4a26f8fec29f0d81c4c4a6520ba1b04d28cf714c Mon Sep 17 00:00:00 2001
+From: helal farah <fhbusinessservices1@gmail.com>
+Date: Tue, 14 Jul 2026 12:34:15 +0200
+Subject: [PATCH 3/6] chore: clean local tooling and generated files
+
+---
+ .gitignore           | 10 ++++++++++
+ .vercel/README.txt   | 11 -----------
+ .vercel/repo.json    | 23 -----------------------
+ google-services.json | 29 -----------------------------
+ 4 files changed, 10 insertions(+), 63 deletions(-)
+ delete mode 100644 .vercel/README.txt
+ delete mode 100644 .vercel/repo.json
+ delete mode 100644 google-services.json
+
+diff --git a/.gitignore b/.gitignore
+index 7b6b182..07150da 100644
+--- a/.gitignore
++++ b/.gitignore
+@@ -78,3 +78,13 @@ docker-volumes/
+ !docker-compose.prod.yml
+ !vercel.json
+ !.github/
++.vs/
++.idea
++.idea/
++.vs/
++.vercel/
++.agents/
++.claude/settings.local.json
++google-services.json
++memory/
++MEMORY.md
+diff --git a/.vercel/README.txt b/.vercel/README.txt
+deleted file mode 100644
+index 525d8ce..0000000
+--- a/.vercel/README.txt
++++ /dev/null
+@@ -1,11 +0,0 @@
+-> Why do I have a folder named ".vercel" in my project?
+-The ".vercel" folder is created when you link a directory to a Vercel project.
+-
+-> What does the "project.json" file contain?
+-The "project.json" file contains:
+-- The ID of the Vercel project that you linked ("projectId")
+-- The ID of the user or team your Vercel project is owned by ("orgId")
+-
+-> Should I commit the ".vercel" folder?
+-No, you should not share the ".vercel" folder with anyone.
+-Upon creation, it will be automatically added to your ".gitignore" file.
+diff --git a/.vercel/repo.json b/.vercel/repo.json
+deleted file mode 100644
+index c8c381f..0000000
+--- a/.vercel/repo.json
++++ /dev/null
+@@ -1,23 +0,0 @@
+-{
+-  "remoteName": "origin",
+-  "projects": [
+-    {
+-      "id": "prj_vMvI3BaxY4Y86zNRmqfx7TOZs81k",
+-      "name": "api",
+-      "directory": "api",
+-      "orgId": "team_BqbMVFeIjvtkCcTnH4G6T0zN"
+-    },
+-    {
+-      "id": "prj_1Y4QfHeX5V3REnudkvBngARGUJzh",
+-      "name": "taxilibre",
+-      "directory": ".",
+-      "orgId": "team_BqbMVFeIjvtkCcTnH4G6T0zN"
+-    },
+-    {
+-      "id": "prj_sYmzzdIsQxCWT2D7GH28nPMLqXRZ",
+-      "name": "backend",
+-      "directory": "backend",
+-      "orgId": "team_BqbMVFeIjvtkCcTnH4G6T0zN"
+-    }
+-  ]
+-}
+diff --git a/google-services.json b/google-services.json
+deleted file mode 100644
+index a5d6789..0000000
+--- a/google-services.json
++++ /dev/null
+@@ -1,29 +0,0 @@
+-{
+-  "project_info": {
+-    "project_number": "369166732726",
+-    "project_id": "taxilibre-a0f78422",
+-    "storage_bucket": "taxilibre-a0f78422.firebasestorage.app"
+-  },
+-  "client": [
+-    {
+-      "client_info": {
+-        "mobilesdk_app_id": "1:369166732726:android:fbd65ee90fa199ca244517",
+-        "android_client_info": {
+-          "package_name": "taxilibre.vercel.app"
+-        }
+-      },
+-      "oauth_client": [],
+-      "api_key": [
+-        {
+-          "current_key": "AIzaSyCc-Z_seZsTYV83l5savvSUvd3oxYtBQJM"
+-        }
+-      ],
+-      "services": {
+-        "appinvite_service": {
+-          "other_platform_oauth_client": []
+-        }
+-      }
+-    }
+-  ],
+-  "configuration_version": "1"
+-}
+\ No newline at end of file
+-- 
+2.55.0.windows.2
+

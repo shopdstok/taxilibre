@@ -1,0 +1,150 @@
+# 🚀 ECS TASK DEFINITIONS
+
+## backend-task-definition.json
+{
+  "family": "taxilibre-backend",
+  "networkMode": "awsvpc",
+  "requiresCompatibilities": ["FARGATE"],
+  "cpu": "1024",
+  "memory": "2048",
+  "executionRoleArn": "arn:aws:iam::123456789012:role/ecsTaskExecutionRole",
+  "taskRoleArn": "arn:aws:iam::123456789012:role/ecsTaskRole",
+  "containerDefinitions": [
+    {
+      "name": "backend",
+      "image": "123456789012.dkr.ecr.eu-west-3.amazonaws.com/taxilibre-backend:latest",
+      "portMappings": [
+        {
+          "containerPort": 3003,
+          "protocol": "tcp"
+        }
+      ],
+      "environment": [
+        {
+          "name": "NODE_ENV",
+          "value": "production"
+        },
+        {
+          "name": "PORT",
+          "value": "3003"
+        },
+        {
+          "name": "HOST",
+          "value": "0.0.0.0"
+        }
+      ],
+      "secrets": [
+        {
+          "name": "DATABASE_URL",
+          "valueFrom": "arn:aws:secretsmanager:eu-west-3:123456789012:secret:taxilibre/database-url"
+        },
+        {
+          "name": "REDIS_URL",
+          "valueFrom": "arn:aws:secretsmanager:eu-west-3:123456789012:secret:taxilibre/redis-url"
+        },
+        {
+          "name": "JWT_SECRET",
+          "valueFrom": "arn:aws:secretsmanager:eu-west-3:123456789012:secret:taxilibre/jwt-secret"
+        },
+        {
+          "name": "STRIPE_SECRET_KEY",
+          "valueFrom": "arn:aws:secretsmanager:eu-west-3:123456789012:secret:taxilibre/stripe-secret"
+        }
+      ],
+      "logConfiguration": {
+        "logDriver": "awslogs",
+        "options": {
+          "awslogs-group": "/ecs/taxilibre-backend",
+          "awslogs-region": "eu-west-3",
+          "awslogs-stream-prefix": "ecs"
+        }
+      },
+      "healthCheck": {
+        "command": ["CMD-SHELL", "curl -f http://localhost:3003/health || exit 1"],
+        "interval": 30,
+        "timeout": 5,
+        "retries": 3,
+        "startPeriod": 60
+      },
+      "ulimits": [
+        {
+          "name": "nofile",
+          "softLimit": 65536,
+          "hardLimit": 65536
+        }
+      ],
+      "resourceLimits": {
+        "cpus": "1024",
+        "memory": "2048"
+      }
+    }
+  ],
+  "placementConstraints": [
+    {
+      "type": "distinctInstance"
+    }
+  ],
+  "tags": [
+    {
+      "key": "Name",
+      "value": "taxilibre-backend"
+    },
+    {
+      "key": "Environment",
+      "value": "production"
+    }
+  ]
+}
+
+## frontend-task-definition.json
+{
+  "family": "taxilibre-frontend",
+  "networkMode": "awsvpc",
+  "requiresCompatibilities": ["FARGATE"],
+  "cpu": "256",
+  "memory": "512",
+  "executionRoleArn": "arn:aws:iam::123456789012:role/ecsTaskExecutionRole",
+  "containerDefinitions": [
+    {
+      "name": "frontend",
+      "image": "123456789012.dkr.ecr.eu-west-3.amazonaws.com/taxilibre-frontend:latest",
+      "portMappings": [
+        {
+          "containerPort": 80,
+          "protocol": "tcp"
+        }
+      ],
+      "environment": [
+        {
+          "name": "NODE_ENV",
+          "value": "production"
+        }
+      ],
+      "logConfiguration": {
+        "logDriver": "awslogs",
+        "options": {
+          "awslogs-group": "/ecs/taxilibre-frontend",
+          "awslogs-region": "eu-west-3",
+          "awslogs-stream-prefix": "ecs"
+        }
+      },
+      "healthCheck": {
+        "command": ["CMD-SHELL", "curl -f http://localhost:80/ || exit 1"],
+        "interval": 30,
+        "timeout": 5,
+        "retries": 3,
+        "startPeriod": 60
+      }
+    }
+  ],
+  "tags": [
+    {
+      "key": "Name",
+      "value": "taxilibre-frontend"
+    },
+    {
+      "key": "Environment",
+      "value": "production"
+    }
+  ]
+}

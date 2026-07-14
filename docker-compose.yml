@@ -1,0 +1,112 @@
+version: '3.9'
+
+services:
+  # Backend API
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    env_file:
+      - .env
+    environment:
+      - NODE_ENV=production
+      - PORT=3003
+    depends_on:
+      - postgres
+      - redis
+    networks:
+      - taxilibre-network
+    volumes:
+      - ./backend:/app
+      - /app/node_modules
+
+  # PostgreSQL Database
+  postgres:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${DB_USER:-taxilibre}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-password}
+      POSTGRES_DB: ${DB_NAME:-taxilibre}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - taxilibre-network
+    ports:
+      - "5432:5432"
+
+  # Redis
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    command: redis-server --appendonly yes
+    volumes:
+      - redis_data:/data
+    networks:
+      - taxilibre-network
+    ports:
+      - "6379:6379"
+
+  # Passenger Web App
+  passenger-web:
+    build:
+      context: ./apps/passenger-web
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    environment:
+      - VITE_API_URL=http://localhost/api
+    depends_on:
+      - backend
+    networks:
+      - taxilibre-network
+
+  # Driver Web App
+  driver-web:
+    build:
+      context: ./apps/driver-web
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    environment:
+      - VITE_API_URL=http://localhost/api
+    depends_on:
+      - backend
+    networks:
+      - taxilibre-network
+
+  # Admin Dashboard
+  admin-dashboard:
+    build:
+      context: ./apps/admin-dashboard
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    environment:
+      - VITE_API_URL=http://localhost/api
+    depends_on:
+      - backend
+    networks:
+      - taxilibre-network
+
+  # Nginx Gateway
+  gateway:
+    image: nginx:1.27-alpine
+    restart: unless-stopped
+    depends_on:
+      - backend
+      - passenger-web
+      - driver-web
+      - admin-dashboard
+    ports:
+      - "80:80"
+    volumes:
+      - ./gateway-nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+    networks:
+      - taxilibre-network
+
+networks:
+  taxilibre-network:
+    driver: bridge
+
+volumes:
+  postgres_data:
+  redis_data:

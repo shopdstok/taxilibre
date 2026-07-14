@@ -1,0 +1,731 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Taxilibre - Vos trajets simples, rapides et sécurisés</title>
+    <style>
+        :root {
+            --primary: #6366f1;
+            --primary-dark: #4f46e5;
+            --secondary: #10b981;
+            --dark: #1f2937;
+            --light: #f9fafb;
+            --gray: #6b7280;
+            --gray-light: #d1d5db;
+            --white: #ffffff;
+            --shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.05);
+            --shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
+            --radius: 0.5rem;
+            --transition: 0.2s ease;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+body {
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    line-height: 1.6;
+    color: var(--dark);
+    background-color: #1f2937;
+    background-color: var(--light);
+}
+
+a {
+    text-decoration: none;
+    color: inherit;
+    transition: var(--transition);
+}
+
+a:hover {
+    color: var(--primary);
+}
+
+img {
+    max-width: 100%;
+    height: auto;
+}
+
+/* Header */
+header {
+    background: var(--white);
+    box-shadow: var(--shadow);
+    position: sticky;
+    top: 0;
+    z-index: 1000;
+}
+
+.container {
+    width: 90%;
+    max-width: 1200px;
+    margin: 0 auto;
+}
+
+.header-content {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 1rem;
+    padding: 1rem 0;
+}
+
+.logo {
+    font-size: 1.5rem;
+    font-weight: 800;
+    color: var(--primary);
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.logo::before {
+    content: "🚖";
+    font-size: 1.8rem;
+}
+.nav-menu {
+    display: flex;
+    gap: 2rem;
+}
+
+.nav-menu a {
+    font-weight: 500;
+    color: var(--gray);
+    position: relative;
+    padding: 0.5px 0;
+}
+
+.nav-menu a:hover,
+.nav-menu a.active {
+    color: var(--primary);
+}
+
+.nav-menu a.active::after,
+.nav-menu a:hover::after {
+    content: '';
+    position: absolute;
+    left: 0;
+    bottom: -3px;
+    width: 100%;
+    height: 2px;
+    background: var(--primary);
+    border-radius: 1px;
+}
+
+.btn {
+    display: inline-block;
+    padding: 0.75rem 1.5rem;
+    border-radius: var(--radius);
+    font-weight: 600;
+    cursor: pointer;
+    transition: var(--transition);
+    border: none;
+    font-size: 0.95rem;
+}
+
+.btn-primary {
+    background: var(--primary);
+    color: var(--white);
+}
+
+.btn-primary:hover {
+    background: var(--primary-dark);
+    transform: translateY(-2px);
+    box-shadow: var(--shadow);
+}
+
+.btn-outline {
+    background: transparent;
+    color: var(--primary);
+    border: 2px solid var(--primary);
+}
+
+.btn-outline:hover {
+    background: var(--primary);
+    color: var(--white);
+    transform: translateY(-2px);
+    box-shadow: var(--shadow);
+}
+
+.menu-toggle {
+    display: none;
+    flex-direction: column;
+    gap: 5px;
+    cursor: pointer;
+}
+
+.menu-toggle span {
+    width: 25px;
+    height: 3px;
+    background: var(--gray);
+    border-radius: 2px;
+    transition: var(--transition);
+}
+/* Hero Section */
+#hero {
+    background: linear-gradient(135deg, var(--primary) 0%, var(--primary-dark) 100%);
+    color: var(--white);
+    text-align: center;
+    padding: 8rem 0 6rem;
+    position: relative;
+    overflow: hidden;
+}
+
+#hero::before {
+    content: '';
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    width: 100%;
+    height: 120px;
+    background: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1440 120"><path fill="%23ffffff" fill-opacity="0.05" d="M0,60 Q300,120 600,60 T1200,60 L1440,120 L1440,0 L0,0 Z"/></svg>');
+}
+
+.hero-content {
+    max-width: 800px;
+    margin: 0 auto;
+}
+
+.hero-title {
+    font-size: 2.8rem;
+    font-weight: 700;
+    margin-bottom: 1.5rem;
+    line-height: 1.2;
+}
+
+.hero-subtitle {
+    font-size: 1.25rem;
+    margin-bottom: 2.5rem;
+    opacity: 0.9;
+    max-width: 600px;
+    margin-left: auto;
+    margin-right: auto;
+}
+
+.hero-buttons {
+    display: flex;
+    justify-content: center;
+    gap: 1.5rem;
+    flex-wrap: wrap;
+}
+
+.hero-icon {
+    font-size: 5rem;
+    margin-bottom: 2rem;
+    animation: float 4s ease-in-out infinite;
+}
+
+@keyframes float {
+    0% { transform: translateY(0px); }
+    50% { transform: translateY(-10px); }
+    100% { transform: translateY(0px); }
+}
+/* Sections */
+section {
+    padding: 6rem 0;
+}
+
+section:nth-child(even) {
+    background: var(--light);
+}
+
+.section-title {
+    text-align: center;
+    font-size: 2.2rem;
+    font-weight: 700;
+    margin-bottom: 3rem;
+    color: var(--dark);
+}
+
+/* Features Grid */
+.features-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+    gap: 2.5rem;
+    margin-top: 2rem;
+}
+
+.feature-card {
+    background: var(--white);
+    border-radius: var(--radius);
+    padding: 2.5rem;
+    text-align: center;
+    transition: var(--transition);
+    box-shadow: var(--shadow-sm);
+    border: 1px solid var(--gray-light);
+}
+
+.feature-card:hover {
+    transform: translateY(-5px);
+    box-shadow: var(--shadow);
+    border-color: var(--primary);
+}
+
+.feature-icon {
+    font-size: 3rem;
+    margin-bottom: 1.5rem;
+    color: var(--primary);
+    width: 60px;
+    height: 60px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: rgba(99, 102, 241, 0.1);
+    border-radius: 50%;
+}
+
+.feature-title {
+    font-size: 1.3rem;
+    margin-bottom: 1rem;
+    color: var(--dark);
+    font-weight: 600;
+}
+
+.feature-text {
+    color: var(--gray);
+    line-height: 1.5;
+}
+
+/* CTA Section */
+.section-btn {
+    text-align: center;
+    margin-top: 3rem;
+}
+
+/* How It Works */
+.steps {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+    gap: 2rem;
+    margin-top: 3rem;
+}
+
+.step {
+    text-align: center;
+    padding: 2rem;
+    background: var(--white);
+    border-radius: var(--radius);
+    box-shadow: var(--shadow-sm);
+}
+
+.step-number {
+    width: 60px;
+    height: 60px;
+    background: var(--primary);
+    color: var(--white);
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.5rem;
+    font-weight: bold;
+    margin: 0 auto 1.5rem;
+}
+
+.step-title {
+    font-size: 1.25rem;
+    margin-bottom: 1rem;
+    color: var(--dark);
+}
+
+.step-text {
+    color: var(--gray);
+}
+
+/* Benefits */
+.benefits-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    gap: 2rem;
+    margin-top: 3rem;
+}
+
+.benefit {
+    text-align: center;
+    padding: 1.5rem;
+}
+
+.benefit-icon {
+    font-size: 2.5rem;
+    margin-bottom: 1rem;
+    color: var(--primary);
+}
+
+.benefit-title {
+    font-size: 1.1rem;
+    margin-bottom: 0.5rem;
+    color: var(--dark);
+}
+/* Footer */
+footer {
+    background: var(--dark);
+    color: var(--white);
+    padding: 4rem 0 2rem;
+}
+
+.footer-content {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 2.5rem;
+}
+
+.footer-logo {
+    font-size: 1.5rem;
+    font-weight: 800;
+    color: var(--primary);
+    margin-bottom: 1rem;
+}
+
+.footer-logo::before {
+    content: "🚖";
+    margin-right: 0.5rem;
+}
+
+.footer-links h3 {
+    font-size: 1.1rem;
+    margin-bottom: 1.5rem;
+    color: var(--white);
+    position: relative;
+    padding-bottom: 0.5rem;
+}
+
+.footer-links h3::after {
+    content: '';
+    position: absolute;
+    left: 0;
+    bottom: 0;
+    width: 40px;
+    height: 2px;
+    background: var(--primary);
+}
+
+.footer-links ul {
+    list-style: none;
+}
+
+.footer-links li {
+    margin-bottom: 0.75rem;
+}
+
+.footer-links a {
+    color: #9ca3af;
+    font-size: 0.95rem;
+}
+
+.footer-links a:hover {
+    color: var(--white);
+}
+
+.footer-bottom {
+    text-align: center;
+    margin-top: 2.5rem;
+    padding-top: 1.5rem;
+    border-top: 1px solid rgba(255,255,255,0.1);
+    font-size: 0.9rem;
+    color: #9ca3af;
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+    .hero-title {
+        font-size: 2.2rem;
+    }
+
+    .hero-subtitle {
+        font-size: 1.1rem;
+    }
+
+    .header-content {
+        flex-direction: column;
+        align-items: stretch;
+    }
+
+    .nav-menu {
+        margin-top: 1rem;
+        flex-wrap: wrap;
+    }
+
+    .menu-toggle {
+        display: flex;
+    }
+
+    .nav-menu {
+        display: none;
+        width: 100%;
+    }
+
+    .nav-menu.active {
+        display: flex;
+        flex-direction: column;
+    }
+
+    .nav-menu a {
+        padding: 1rem;
+        border-bottom: 1px solid var(--gray-light);
+    }
+
+    .btn {
+        width: 100%;
+        margin-bottom: 0.75rem;
+    }
+
+    .hero-buttons,
+    .section-btn .btn {
+        flex-direction: column;
+        align-items: stretch;
+    }
+
+    .hero-buttons .btn,
+    .section-btn .btn {
+        margin-bottom: 0.75rem;
+    }
+}
+
+@media (max-width: 480px) {
+    .hero-title {
+        font-size: 1.8rem;
+    }
+}
+</style>
+</head>
+<body>
+    <header>
+        <div class="container">
+            <div class="header-content">
+                <div class="logo">Taxilibre</div>
+                <nav>
+                    <ul class="nav-menu" id="navMenu">
+                        <li><a href="#hero" class="active">Accueil</a></li>
+                        <li><a href="#how-it-works">Comment ça marche</a></li>
+                        <li><a href="#benefits">Avantages</a></li>
+                        <li><a href="#contact">Contact</a></li>
+                    </ul>
+                </nav>
+                <div class="menu-toggle" id="menuToggle">
+                    <span></span>
+                    <span></span>
+                    <span></span>
+                </div>
+                <div>
+                    <a href="https://passenger-web-sigma.vercel.app/" class="btn btn-outline">Passager</a>
+                    <a href="https://driver-web-alpha.vercel.app/" class="btn btn-primary">Chauffeur</a>
+                </div>
+            </div>
+        </div>
+    </header>
+    <!-- Hero Section -->
+    <section id="hero">
+        <div class="container">
+            <div class="hero-content">
+                <div class="hero-icon">🚖</div>
+                <h1 class="hero-title">Des déplacements simples, rapides et sûrs</h1>
+                <p class="hero-subtitle">Que vous soyez passager ou chauffeur, Taxilibre vous offre une expérience de transport optimale. Réservez votre trajet en quelques secondes et voyagez en toute sérénité.</p>
+                <div class="hero-buttons">
+                    <a href="https://passenger-web-sigma.vercel.app/" class="btn btn-primary">Je suis passager</a>
+                    <a href="https://driver-web-alpha.vercel.app/" class="btn btn-outline">Je suis chauffeur</a>
+                </div>
+            </div>
+        </div>
+    </section>
+    <!-- Passenger Section -->
+    <section class="passenger-section">
+        <div class="container">
+            <h2 class="section-title">Pourquoi choisir Taxilibre en tant que passager ?</h2>
+            <div class="features-grid">
+                <div class="feature-card">
+                    <div class="feature-icon">🕒</div>
+                    <h3 class="feature-title">Réservation instantanée</h3>
+                    <p class="feature-text">Trouvez un chauffeur disponible en quelques secondes, où que vous soyez et à tout moment.</p>
+                </div>
+                <div class="feature-card">
+                    <div class="feature-icon">🗺️</div>
+                    <h3 class="feature-title">Suivi en temps réel</h3>
+                    <p class="feature-text">Suivez l'arrivée de votre chauffeur et partagez votre trajet avec vos proches pour plus de sécurité.</p>
+                </div>
+                <div class="feature-card">
+                    <div class="feature-icon">💳</div>
+                    <h3 class="feature-title">Paiement sécurisé</h3>
+                    <p class="feature-text">Payez votre trajet directement dans l'application avec nos méthodes de paiement encryptées.</p>
+                </div>
+                <div class="feature-card">
+                    <div class="feature-icon">👥</div>
+                    <h3 class="feature-title">Chauffeurs notés</h3>
+                    <p class="feature-text">Choisissez parmi des chauffeurs expérimentés et bien notés pour un service de qualité.</p>
+                </div>
+            </div>
+        </div>
+    </section>
+    <!-- Driver Section -->
+    <section class="driver-section">
+        <div class="container">
+            <h2 class="section-title">Pourquoi choisir Taxilibre en tant que chauffeur ?</h2>
+            <div class="features-grid">
+                <div class="feature-card">
+                    <div class="feature-icon">📱</div>
+                    <h3 class="feature-title">Recevez des courses</h3>
+                    <p class="feature-text">Notifications instantanées pour des courses proches de votre position.</p>
+                </div>
+                <div class="feature-card">
+                    <div class="feature-icon">📅</div>
+                    <h3 class="feature-title">Planifiez votre travail</h3>
+                    <p class="feature-text">Acceptez ou refusez des courses selon votre disponibilité et optimisez votre emploi du temps.</p>
+                </div>
+                <div class="feature-card">
+                    <div class="feature-icon">💰</div>
+                    <h3 class="feature-title">Suivez vos gains</h3>
+                    <p class="feature-text">Historique détaillé de vos courses et revenus avec possibilité d'export.</p>
+                </div>
+                <div class="feature-card">
+                    <div class="feature-icon">📊</div>
+                    <h3 class="feature-title">Disponibilité flexible</h3>
+                    <p class="feature-text">Activez ou désactivez votre disponibilité en un clic pour travailler quand vous le souhaitez.</p>
+                </div>
+            </div>
+        </div>
+    </section>
+    <!-- How It Works -->
+    <section id="how-it-works" class="section">
+        <div class="container">
+            <h2 class="section-title">Comment ça fonctionne ?</h2>
+            <div class="steps">
+                <div class="step">
+                    <div class="step-number">1</div>
+                    <h3 class="step-title">Inscription</h3>
+                    <p class="step-text">Inscrivez-vous en tant que passager ou chauffeur en quelques minutes avec votre email ou numéro de téléphone.</p>
+                </div>
+                <div class="step">
+                    <div class="step-number">2</div>
+                    <h3 class="step-title">Demande ou offre</h3>
+                    <p class="step-text">En tant que passager, indiquez votre destination. En tant que chauffeur, indiquez votre disponibilité.</p>
+                </div>
+                <div class="step">
+                    <div class="step-number">3</div>
+                    <h3 class="step-title">Voyagez</h3>
+                    <p class="step-text">Rencontrez votre chauffeur ou passager, voyagez ensemble et notez votre expérience à la fin du trajet.</p>
+                </div>
+            </div>
+        </div>
+    </section>
+    <!-- Benefits -->
+    <section id="benefits" class="section">
+        <div class="container">
+            <h2 class="section-title">Pourquoi choisir Taxilibre ?</h2>
+            <div class="benefits-grid">
+                <div class="benefit">
+                    <div class="benefit-icon">⚡</div>
+                    <h3 class="benefit-title">Rapidité</h3>
+                    <p class="benefit-text">Trouvez un trajet en moins de 30 secondes grâce à notre algorithme de mise en relation optimisé.</p>
+                </div>
+                <div class="benefit">
+                    <div class="benefit-icon">🔒</div>
+                    <h3 class="benefit-title">Sécurité</h3>
+                    <p class="benefit-text">Vérification des conducteurs, suivi en temps réel et assistance 24/7 pour voyager en toute tranquillité.</p>
+                </div>
+                <div class="benefit">
+                    <div class="benefit-icon">🌟</div>
+                    <h3 class="benefit-title">Simplicité</h3>
+                    <p class="benefit-text">Interface intuitive, réservation en un clic et paiement sécurisé sans espèces.</p>
+                </div>
+                <div class="benefit">
+                    <div class="benefit-icon">🚗</div>
+                    <h3 class="benefit-title">Disponibilité</h3>
+                    <p class="benefit-text">Un large réseau de chauffeurs disponibles dans votre ville et ses environs.</p>
+                </div>
+            </div>
+        </div>
+    </section>
+    <!-- Contact Section -->
+    <section id="contact" class="section">
+        <div class="container">
+            <h2 class="section-title">Besoin d'aide ?</h2>
+            <p>Notre équipe est disponible pour répondre à toutes vos questions et vous assister en cas de besoin.</p>
+            <div class="section-btn">
+                <a href="mailto:support@taxilibre.com" class="btn btn-primary">Nous contacter par email</a>
+            </div>
+        </div>
+    </section>
+    <!-- Footer -->
+    <footer>
+        <div class="container">
+            <div class="footer-content">
+                <div>
+                    <div class="footer-logo">Taxilibre</div>
+                    <p style="color: #9ca3af; margin-top: 1rem; max-width: 300px;">
+                        Votre solution de transport fiable et sécurisée pour tous vos déplacements.
+                    </p>
+                </div>
+                <div>
+                    <div class="footer-links">
+                        <div>
+                            <h3>Company</h3>
+                            <ul>
+                                <li><a href="#hero">Accueil</a></li>
+                                <li><a href="#">Conditions</a></li>
+                                <li><a href="#">Confidentialité</a></li>
+                                <li><a href="#contact">Contact</a></li>
+                            </ul>
+                        </div>
+                        <div>
+                            <h3>Applications</h3>
+                            <ul>
+                                <li><a href="https://passenger-web-sigma.vercel.app/">Passager</a></li>
+                                <li><a href="https://driver-web-alpha.vercel.app/">Chauffeur</a></li>
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="footer-bottom">
+                <p>&copy; 2026 Taxilibre. Tous droits réservés.</p>
+            </div>
+        </div>
+    </footer>
+    <script>
+        // Mobile menu toggle
+        const menuToggle = document.getElementById('menuToggle');
+        const navMenu = document.getElementById('navMenu');
+
+        menuToggle.addEventListener('click', () => {
+            navMenu.classList.toggle('active');
+            // Animate hamburger to X
+            const spans = menuToggle.querySelectorAll('span');
+            spans.forEach(span => span.classList.toggle('active'));
+        });
+
+        // Close mobile menu when clicking a link
+        document.querySelectorAll('.nav-menu a').forEach(link => {
+            link.addEventListener('click', () => {
+                navMenu.classList.remove('active');
+                const spans = menuToggle.querySelectorAll('span');
+                spans.forEach(span => span.classList.remove('active'));
+            });
+        });
+
+        // Active link on scroll
+        const sections = document.querySelectorAll('section[id]');
+        const navLinks = document.querySelectorAll('.nav-menu a');
+
+        window.addEventListener('scroll', () => {
+            let current = '';
+            const scrollY = window.pageYOffset;
+
+            sections.forEach(section => {
+                const sectionTop = section.offsetTop - 100;
+                const sectionHeight = section.offsetHeight;
+                if (scrollY >= sectionTop && scrollY < sectionTop + sectionHeight) {
+                    current = section.getAttribute('id');
+                }
+            });
+
+            navLinks.forEach(link => {
+                link.classList.remove('active');
+                if (link.getAttribute('href').substring(1) === current) {
+                    link.classList.add('active');
+                }
+            });
+        });
+    </script>
+</body>
+</html>

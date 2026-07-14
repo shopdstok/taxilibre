@@ -1,0 +1,6 @@
+# Vercel ignore file
+# Ignorer les fichiers qui causent des problèmes de Content-Type
+*.html
+!dist/assets/*.js
+!dist/assets/*.css
+!dist/assets/*.map

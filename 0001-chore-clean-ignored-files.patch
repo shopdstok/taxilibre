@@ -1,0 +1,198 @@
+From fedc225c6adbe6393dab2c543c4d3c3be23f1ea7 Mon Sep 17 00:00:00 2001
+From: helal farah <fhbusinessservices1@gmail.com>
+Date: Tue, 14 Jul 2026 11:55:02 +0200
+Subject: [PATCH 1/6] chore: clean ignored files
+
+---
+ .gitignore | 169 +++++++++++++++++++++--------------------------------
+ 1 file changed, 68 insertions(+), 101 deletions(-)
+
+diff --git a/.gitignore b/.gitignore
+index 1247e67..7b6b182 100644
+--- a/.gitignore
++++ b/.gitignore
+@@ -1,113 +1,80 @@
+-# Dependencies
++# TaxiLibre - .gitignore
++
+ node_modules/
++**/node_modules/
++logs/
++*.log
++backend/server.log
+ npm-debug.log*
+ yarn-debug.log*
+ yarn-error.log*
+-
+-# Production builds
+-dist/
+-build/
+-.next/
+-
+-# Environment variables
+-.env
+-.env.local
+-.env.development
+-.env.test
+-
+-# Logs
+-logs/
+-*.log
+-
+-# Runtime data
+-pids/
++pnpm-debug.log*
+ *.pid
+-*.seed
+ *.pid.lock
+-
+-# Coverage directory used by tools like istanbul
++.env
++.env.*
++!.env.example
++backend/.env
++backend/.env.*
++!backend/.env.example
++dist/
++build/
+ coverage/
+-
+-# nyc test coverage
+ .nyc_output/
+-
+-# Dependency directories
+-jspm_packages/
+-
+-# Optional npm cache directory
+-.npm
+-
+-# Optional REPL history
+-.node_repl_history
+-
+-# Output of 'npm pack'
+-*.tgz
+-
+-# Yarn Integrity file
+-.yarn-integrity
+-
+-# dotenv environment variables file
+-.env
+-
+-# parcel-bundler cache (https://parceljs.org/)
+-.cache
+-.parcel-cache
+-
+-# next.js build output
+-.next
+-
+-# nuxt.js build output
+-.nuxt
+-
+-# vuepress build output
+-.vuepress/dist
+-
+-# Serverless directories
+-.serverless
+-
+-# FuseBox cache
+-.fusebox/
+-
+-# DynamoDB Local files
+-.dynamodb/
+-
+-# TernJS port file
+-.tern-port
+-
+-# Stores VSCode versions used for testing VSCode extensions
+-.vscode-test
+-
+-# Temporary folders
++.vite/
++.next/
++out/
++.tmp/
+ tmp/
+ temp/
+-
+-# OS generated files
++generated/
++.cache/
++.eslintcache
++.tsbuildinfo
++*.tsbuildinfo
++prisma/dev.db
++prisma/dev.db-journal
++backend/prisma/dev.db
++backend/prisma/dev.db-journal
++uploads/
++backend/uploads/
++public/uploads/
++backend/logs/
++*.bak
++*.backup
++*.tmp
++*.old
++*~
++*.swp
++server.pid
+ .DS_Store
+-.DS_Store?
+-._*
+-.Spotlight-V100
+-.Trashes
+-ehthumbs.db
+ Thumbs.db
+-
+-# Local development files (REMOVED)
+-scripts/mock-*.ts
+-scripts/dev-*.ts
+-scripts/test-*.ts
+-scripts/fix-*.ts
+-scripts/check-*.ts
+-scripts/vercel-*.ts
+-index.html
+-vercel-*.json
+-.env.local
+-test_login.json
+-
+-.vercel
+-.env*.local
+-# Production environment files (generated)
+-.env.production
+-.env.production.*
+-
+-.env*
+-
+-/generated/prisma
++.idea/
++.vs/
++.vscode/
++*.suo
++*.user
++*.userosscache
++*.sln.docstates
++.vscode-test/
++*.local
++test-results/
++*.lcov
++.firebaserc.local
++firebase-debug.log
++debug.log
++docker-data/
++docker-volumes/
++!README.md
++!package.json
++!package-lock.json
++!backend/package.json
++!backend/package-lock.json
++!prisma/schema.prisma
++!backend/prisma/schema.prisma
++!.env.example
++!backend/.env.example
++!docker-compose.yml
++!docker-compose.prod.yml
++!vercel.json
++!.github/
+-- 
+2.55.0.windows.2
+

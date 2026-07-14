@@ -1,0 +1,274 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Page Non Trouvée - TaxiLibre</title>
+    <link rel="icon" href="/favicon.ico" />
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen', 'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue', sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: #333;
+        }
+        
+        .container {
+            background: white;
+            padding: 3rem;
+            border-radius: 1rem;
+            box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+            text-align: center;
+            max-width: 500px;
+            margin: 2rem;
+            animation: fadeInUp 0.6s ease-out;
+        }
+        
+        .icon {
+            width: 80px;
+            height: 80px;
+            margin: 0 auto 2rem;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            animation: pulse 2s infinite;
+        }
+        
+        .icon svg {
+            width: 40px;
+            height: 40px;
+            color: white;
+        }
+        
+        h1 {
+            font-size: 2rem;
+            margin-bottom: 1rem;
+            color: #333;
+            font-weight: 700;
+        }
+        
+        .description {
+            color: #666;
+            margin-bottom: 2rem;
+            line-height: 1.6;
+        }
+        
+        .buttons {
+            display: flex;
+            gap: 1rem;
+            justify-content: center;
+            flex-wrap: wrap;
+        }
+        
+        .btn {
+            padding: 0.75rem 1.5rem;
+            border: none;
+            border-radius: 0.5rem;
+            font-weight: 600;
+            text-decoration: none;
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+            transition: all 0.3s ease;
+            cursor: pointer;
+            font-size: 1rem;
+        }
+        
+        .btn-primary {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+        }
+        
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 16px rgba(102, 126, 234, 0.3);
+        }
+        
+        .btn-secondary {
+            background: #f3f4f6;
+            color: #333;
+        }
+        
+        .btn-secondary:hover {
+            background: #e5e7eb;
+            transform: translateY(-2px);
+        }
+        
+        .error-code {
+            display: inline-block;
+            background: #fee2e2;
+            color: #dc2626;
+            padding: 0.25rem 0.75rem;
+            border-radius: 0.25rem;
+            font-size: 0.875rem;
+            font-weight: 600;
+            margin-bottom: 1rem;
+        }
+        
+        .suggestions {
+            margin-top: 2rem;
+            padding-top: 2rem;
+            border-top: 1px solid #e5e7eb;
+        }
+        
+        .suggestions h3 {
+            font-size: 1.125rem;
+            margin-bottom: 1rem;
+            color: #333;
+        }
+        
+        .suggestion-list {
+            text-align: left;
+            list-style: none;
+        }
+        
+        .suggestion-list li {
+            padding: 0.5rem 0;
+            color: #666;
+        }
+        
+        .suggestion-list a {
+            color: #667eea;
+            text-decoration: none;
+            font-weight: 500;
+        }
+        
+        .suggestion-list a:hover {
+            text-decoration: underline;
+        }
+        
+        @keyframes fadeInUp {
+            from {
+                opacity: 0;
+                transform: translateY(30px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+        
+        @keyframes pulse {
+            0% {
+                transform: scale(1);
+                opacity: 1;
+            }
+            50% {
+                transform: scale(1.05);
+                opacity: 0.8;
+            }
+            100% {
+                transform: scale(1);
+                opacity: 1;
+            }
+        }
+        
+        @media (max-width: 640px) {
+            .container {
+                margin: 1rem;
+                padding: 2rem;
+            }
+            
+            .buttons {
+                flex-direction: column;
+                align-items: center;
+            }
+            
+            .btn {
+                width: 100%;
+                justify-content: center;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="icon">
+            <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.172 16.172a4 4 0 015.656 0L9 10.343l7.071 7.071a1 1 0 001.415-1.414L10.415 9l7.07-7.07a1 1 0 00-1.414 1.414L9 10.586 1.93 1.93a4 4 0 01-5.657 0L1.93 10.586A2 2 0 011 10.586V7a2 2 0 012-2h4a2 2 0 012 2v3.586a2 2 0 01-.586 1.414l-7.07 7.07a4 4 0 01-5.657 0z"/>
+            </svg>
+        </div>
+        
+        <div class="error-code">404</div>
+        <h1>Page Non Trouvée</h1>
+        <p class="description">
+            Désolé, la page que vous recherchez n'existe pas ou a été déplacée.<br>
+            Vérifiez l'URL ou retournez à l'accueil pour continuer.
+        </p>
+        
+        <div class="buttons">
+            <a href="/" class="btn btn-primary">
+                <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 00-1 1v4a1 1 0 001 1h3"/>
+                </svg>
+                Accueil TaxiLibre
+            </a>
+            <a href="javascript:history.back()" class="btn btn-secondary">
+                <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18"/>
+                </svg>
+                Retour
+            </a>
+        </div>
+        
+        <div class="suggestions">
+            <h3>Pages Populaires</h3>
+            <ul class="suggestion-list">
+                <li><a href="/">🏠 Accueil principal</a></li>
+                <li><a href="/passenger">👤 Espace Passager</a></li>
+                <li><a href="/driver">🚗 Espace Chauffeur</a></li>
+                <li><a href="/admin">🎛️ Administration</a></li>
+                <li><a href="/help">❓ Aide & Support</a></li>
+                <li><a href="/contact">📞 Contact</a></li>
+            </ul>
+        </div>
+    </div>
+    
+    <script>
+        // Logger l'erreur 404 pour le monitoring
+        console.error('404 Error:', {
+            url: window.location.href,
+            referrer: document.referrer,
+            userAgent: navigator.userAgent,
+            timestamp: new Date().toISOString()
+        });
+        
+        // Envoyer à un service de monitoring si disponible
+        if (typeof fetch !== 'undefined') {
+            fetch('/api/log-error', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    type: '404',
+                    url: window.location.href,
+                    referrer: document.referrer,
+                    userAgent: navigator.userAgent,
+                    timestamp: new Date().toISOString()
+                })
+            }).catch(() => {
+                // Ignorer les erreurs de logging
+            });
+        }
+        
+        // Auto-redirect après 30 secondes si c'est une page d'erreur récurrente
+        setTimeout(() => {
+            if (document.referrer && document.referrer.includes(window.location.hostname)) {
+                window.location.href = '/';
+            }
+        }, 30000);
+    </script>
+</body>
+</html>

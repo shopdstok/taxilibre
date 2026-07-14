@@ -1,0 +1,18 @@
+{
+  "framework": "vite",
+  "buildCommand": "npm run build",
+  "outputDirectory": "dist",
+  "rewrites": [
+    {
+      "source": "/driver/(.*)",
+      "destination": "/index.html"
+    }
+  ],
+  "env": {
+    "VITE_API_URL": "@api-base-url",
+    "VITE_SOCKET_URL": "@socket-url",
+    "VITE_GOOGLE_MAPS_API_KEY": "@google-maps-api-key",
+    "VITE_STRIPE_PUBLIC_KEY": "@stripe-public-key",
+    "VITE_ENV": "production"
+  }
+}

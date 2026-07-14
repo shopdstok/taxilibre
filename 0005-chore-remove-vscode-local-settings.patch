@@ -1,0 +1,32 @@
+From 80d4f6def35fdb2f64a67eeb1d78081baf1f1520 Mon Sep 17 00:00:00 2001
+From: helal farah <fhbusinessservices1@gmail.com>
+Date: Tue, 14 Jul 2026 12:49:01 +0200
+Subject: [PATCH 5/6] chore: remove vscode local settings
+
+---
+ .vscode/settings.json | 12 ------------
+ 1 file changed, 12 deletions(-)
+ delete mode 100644 .vscode/settings.json
+
+diff --git a/.vscode/settings.json b/.vscode/settings.json
+deleted file mode 100644
+index 6814ffd..0000000
+--- a/.vscode/settings.json
++++ /dev/null
+@@ -1,12 +0,0 @@
+-{
+-    "claudeCodeChat.permissions.yoloMode": true,
+-    "claudeCode.allowDangerouslySkipPermissions": true,
+-    "claudeCode.environmentVariables": [
+-        
+-          { "name": "ANTHROPIC_BASE_URL", "value": "http://localhost:8082" },
+-  { "name": "ANTHROPIC_AUTH_TOKEN", "value": "freecc" },
+-  { "name": "CLAUDE_CODE_ENABLE_GATEWAY_MODEL_DISCOVERY", "value": "1" },
+-  { "name": "CLAUDE_CODE_AUTO_COMPACT_WINDOW", "value": "190000" }
+-    ],
+-    "claudeCode.enableNewConversationShortcut": true
+-}
+\ No newline at end of file
+-- 
+2.55.0.windows.2
+

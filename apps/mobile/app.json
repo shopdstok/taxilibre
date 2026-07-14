@@ -1,0 +1,92 @@
+{
+  "expo": {
+    "name": "TaxiLibre",
+    "slug": "taxilibre-mobile",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/images/icon.png",
+    "userInterfaceStyle": "automatic",
+    "splash": {
+      "image": "./assets/images/splash.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#ffffff"
+    },
+    "assetBundlePatterns": [
+      "**/*"
+    ],
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "com.taxilibre.mobile",
+      "buildNumber": "1.0.0",
+      "infoPlist": {
+        "NSLocationWhenInUseUsageDescription": "This app needs access to your location to provide ride services",
+        "NSLocationAlwaysAndWhenInUseUsageDescription": "This app needs access to your location to provide ride services",
+        "NSCameraUsageDescription": "This app needs camera access for profile photos and document uploads",
+        "NSPhotoLibraryUsageDescription": "This app needs photo library access for profile photos"
+      }
+    },
+    "android": {
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/images/adaptive-icon.png",
+        "backgroundColor": "#ffffff"
+      },
+      "package": "com.taxilibre.mobile",
+      "versionCode": 1,
+      "permissions": [
+        "ACCESS_FINE_LOCATION",
+        "ACCESS_COARSE_LOCATION",
+        "CAMERA",
+        "READ_EXTERNAL_STORAGE",
+        "WRITE_EXTERNAL_STORAGE"
+      ]
+    },
+    "web": {
+      "favicon": "./assets/images/favicon.png",
+      "bundler": "metro"
+    },
+    "plugins": [
+      [
+        "expo-camera",
+        {
+          "cameraPermission": "Allow $(PRODUCT_NAME) to access your camera"
+        }
+      ],
+      [
+        "expo-location",
+        {
+          "locationAlwaysAndWhenInUsePermission": "Allow $(PRODUCT_NAME) to use your location."
+        }
+      ],
+      [
+        "expo-notifications",
+        {
+          "icon": "./assets/images/notification-icon.png",
+          "color": "#000000",
+          "sounds": [
+            "./assets/sounds/notification.wav"
+          ]
+        }
+      ],
+      [
+        "@react-native-firebase/app"
+      ],
+      [
+        "@react-native-firebase/messaging"
+      ],
+      [
+        "@stripe/stripe-react-native"
+      ]
+    ],
+    "extra": {
+      "eas": {
+        "projectId": "taxilibre-mobile"
+      }
+    },
+    "runtimeVersion": {
+      "policy": "sdkVersion"
+    },
+    "updates": {
+      "url": "https://u.expo.dev/$(EXPO_PROJECT_ID)"
+    }
+  }
+}

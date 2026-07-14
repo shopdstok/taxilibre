@@ -1,0 +1,104 @@
+name: Deploy Frontend Apps
+
+on:
+  push:
+    branches: [ main, pr-driver, pr-passenger, pr-admin ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  deploy-driver:
+    runs-on: ubuntu-latest
+    if: contains(github.ref, 'pr-driver') || github.ref == 'refs/heads/main'
+    steps:
+      - uses: actions/checkout@v3
+      
+      - name: Setup Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: '18'
+          cache: 'npm'
+          cache-dependency-path: apps/driver-web/package-lock.json
+          
+      - name: Install dependencies
+        run: |
+          cd apps/driver-web
+          npm ci
+          
+      - name: Build
+        run: |
+          cd apps/driver-web
+          npm run build
+          
+      - name: Deploy to Vercel
+        uses: amondnet/vercel-action@v20
+        with:
+          vercel-token: ${{ secrets.VERCEL_TOKEN }}
+          vercel-org-id: ${{ secrets.VERCEL_ORG_ID }}
+          vercel-project-id: ${{ secrets.VERCEL_PROJECT_ID_DRIVER }}
+          working-directory: ./apps/driver-web
+          vercel-args: '--prod'
+
+  deploy-passenger:
+    runs-on: ubuntu-latest
+    if: contains(github.ref, 'pr-passenger') || github.ref == 'refs/heads/main'
+    steps:
+      - uses: actions/checkout@v3
+      
+      - name: Setup Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: '18'
+          cache: 'npm'
+          cache-dependency-path: apps/passenger-web/package-lock.json
+          
+      - name: Install dependencies
+        run: |
+          cd apps/passenger-web
+          npm ci
+          
+      - name: Build
+        run: |
+          cd apps/passenger-web
+          npm run build
+          
+      - name: Deploy to Vercel
+        uses: amondnet/vercel-action@v20
+        with:
+          vercel-token: ${{ secrets.VERCEL_TOKEN }}
+          vercel-org-id: ${{ secrets.VERCEL_ORG_ID }}
+          vercel-project-id: ${{ secrets.VERCEL_PROJECT_ID_PASSENGER }}
+          working-directory: ./apps/passenger-web
+          vercel-args: '--prod'
+
+  deploy-admin:
+    runs-on: ubuntu-latest
+    if: contains(github.ref, 'pr-admin') || github.ref == 'refs/heads/main'
+    steps:
+      - uses: actions/checkout@v3
+      
+      - name: Setup Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: '18'
+          cache: 'npm'
+          cache-dependency-path: apps/admin-dashboard/package-lock.json
+          
+      - name: Install dependencies
+        run: |
+          cd apps/admin-dashboard
+          npm ci
+          
+      - name: Build
+        run: |
+          cd apps/admin-dashboard
+          npm run build
+          
+      - name: Deploy to Vercel
+        uses: amondnet/vercel-action@v20
+        with:
+          vercel-token: ${{ secrets.VERCEL_TOKEN }}
+          vercel-org-id: ${{ secrets.VERCEL_ORG_ID }}
+          vercel-project-id: ${{ secrets.VERCEL_PROJECT_ID_ADMIN }}
+          working-directory: ./apps/admin-dashboard
+          vercel-args: '--prod'

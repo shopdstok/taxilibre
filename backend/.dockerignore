@@ -1,0 +1,60 @@
+# Dependencies
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# Build outputs
+dist/
+build/
+.out/
+.coverage/
+coverage/
+.lerna/
+.turbo/
+
+# Environment variables
+.env
+.env.*
+!.env.example
+
+# Miscellaneous
+.DS_Store
+Thumbs.db
+*.log
+tmp/
+temp/
+logs/
+*.js-map
+
+# IDEs and editors
+.vscode/
+.idea*
+*.sublime-project
+*.sublime-workspace
+*.komodoproject
+
+# Testing
+coverage/
+.jest/
+src/__tests__/  # but we might want to keep tests? Usually exclude in Docker image.
+__tests__/
+test/
+tests/
+*/__tests__/
+
+# Docker
+Dockerfile
+.dockerignore
+.git
+.gitignore
+
+# Uploads (we create empty directories in Dockerfile)
+uploads/
+logs/
+
+# Misc config
+*.txt
+*.md
+!README.md
