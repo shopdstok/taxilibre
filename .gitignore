@@ -1,0 +1,117 @@
+# ======================
+# Dependencies
+# ======================
+node_modules/
+**/node_modules/
+
+# ======================
+# Environment
+# ======================
+.env
+.env.*
+!.env.example
+backend/.env
+backend/.env.*
+!backend/.env.example
+
+# ======================
+# Build
+# ======================
+dist/
+build/
+coverage/
+.vite/
+.next/
+out/
+
+# ======================
+# Logs
+# ======================
+*.log
+logs/
+backend/logs/
+server.pid
+*.pid
+
+# ======================
+# Database
+# ======================
+prisma/dev.db
+prisma/dev.db-journal
+backend/prisma/dev.db
+backend/prisma/dev.db-journal
+
+# ======================
+# Uploads
+# ======================
+uploads/
+backend/uploads/
+public/uploads/
+
+# ======================
+# Temporary
+# ======================
+*.bak
+*.backup
+*.tmp
+*.old
+*.swp
+*~
+
+# ======================
+# IDE
+# ======================
+.vs/
+.idea/
+.vscode/
+*.suo
+*.user
+
+# ======================
+# Claude local
+# ======================
+.claude/settings.local.json
+.agents/
+
+# ======================
+# Vercel
+# ======================
+.vercel/
+
+# ======================
+# Firebase
+# ======================
+google-services.json
+GoogleService-Info.plist
+firebase-debug.log
+
+# ======================
+# Generated
+# ======================
+generated/
+
+# ======================
+# Memory
+# ======================
+memory/
+MEMORY.md
+# VS Code extensions
+*.vsix
+
+# Dependencies
+node_modules/
+
+# Build
+dist/
+build/
+
+# Environment
+.env
+.env.*
+
+# Logs
+*.log
+
+# OS
+Thumbs.db
+.DS_Store
