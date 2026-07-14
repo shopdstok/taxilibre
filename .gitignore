@@ -115,3 +115,9 @@ build/
 # OS
 Thumbs.db
 .DS_Store
+
+# Local AI files
+.claude/plans/
+*.patch
+backend/*test-results.json
+backend/rbac-results.json
