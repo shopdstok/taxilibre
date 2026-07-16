@@ -3,7 +3,7 @@ import { useSession } from '@/context/AuthContext'
 import { Bell, Moon, Sun } from 'lucide-react'
 import { Avatar } from '@/components/ui/Avatar'
 import { Button } from '@/components/ui/Button'
-import { DropdownMenu } from '@/components/ui/DropdownMenu'
+import DropdownMenu from '@/components/ui/DropdownMenu'
 
 export function Header() {
   const { user } = useSession()

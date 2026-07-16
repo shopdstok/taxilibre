@@ -6,24 +6,25 @@ const rateLimit = require('express-rate-limit')
 const { errorHandler } = require('./middleware/errorMiddleware')
 const swaggerUi = require('swagger-ui-express')
 const swaggerSpec = require('./config/swagger')
+const logger = require("./utils/logger");
 
 //
 // Patch pour ignorer Redis (car non utilisé)
 //
 process.on('uncaughtException', (err) => {
     if (err.code === 'ECONNREFUSED' && err.address === '127.0.0.1' && err.port === 6379) {
-        console.warn('Redis ignoré (non utilisé)');
+        logger.warn('Redis ignoré (non utilisé)');
         return;
     }
-    console.error('Erreur non gérée :', err);
+    logger.error('Erreur non gérée :', err);
 });
 
 process.on('unhandledRejection', (reason) => {
     if (reason.code === 'ECONNREFUSED' && reason.address === '127.0.0.1' && reason.port === 6379) {
-        console.warn('Redis ignoré (non utilisé)');
+        logger.warn('Redis ignoré (non utilisé)');
         return;
     }
-    console.error('Rejet non géré :', reason);
+    logger.error('Rejet non géré :', reason);
 });
 
 const app = express()

@@ -7,7 +7,7 @@ import { routes } from '@/routes/index'
 
 const queryClient = new QueryClient()
 
-export function App() {
+export default function App() {
   return (
     <QueryClientProvider client={queryClient}>
       <BrowserRouter>

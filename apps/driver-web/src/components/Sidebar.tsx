@@ -1,5 +1,5 @@
 import { NavLink } from 'react-router-dom'
-import { Activity, AlertCircle, BarChart2, Calendar, ClipboardList, DollarSign, Home, MapPin, MessageSquare, Settings, User, Vehicle } from 'lucide-react'
+import { Activity, AlertCircle, BarChart2, Calendar, ClipboardList, DollarSign, Home, MapPin, MessageSquare, Settings, User, Truck } from 'lucide-react'
 import { Menu, MenuTrigger, MenuContent, MenuItem, MenuCheckboxItem, Separator } from '@/components/ui/menu'
 
 export function Sidebar() {
@@ -37,7 +37,7 @@ export function Sidebar() {
         </NavLink>
         
         <NavLink to="/vehicle" className="flex w-full items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium hover:bg-primary/20">
-          <Vehicle className="h-4 w-4" />
+          <Truck className="h-4 w-4" />
           <span>Vehicle</span>
         </NavLink>
         
