@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { useQuery, useMutation, useQueryClient } from 'react-query';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { adminAPI } from '../services/api.js';
 
 export default function Drivers() {
@@ -186,5 +186,36 @@ export default function Drivers() {
                     </td>
                     <td className="px-6 py-4">
                       <div className="flex space-x-2">
+                      <div className="flex space-x-2">
                         <button
-                          onClick={() => handleUpdateStatus(driverId, driver.status === '
+                          onClick={() => handleUpdateStatus(driverId, driver.status === 'active' ? 'inactive' : 'active')}
+                          className="bg-blue-600 text-white px-3 py-1 rounded hover:bg-opacity-90"
+                        >
+                          {driver.status === 'active' ? 'Deactivate' : 'Activate'}
+                        </button>
+                        <button
+                          onClick={() => handleSuspend(driverId)}
+                          className="bg-orange-600 text-white px-3 py-1 rounded hover:bg-opacity-90"
+                        >
+                          Suspend
+                        </button>
+                        <button
+                          onClick={() => handleDelete(driverId)}
+                          className="bg-red-600 text-white px-3 py-1 rounded hover:bg-opacity-90"
+                        >
+                          Delete
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    );
+  }
+}
+
+export default Drivers;

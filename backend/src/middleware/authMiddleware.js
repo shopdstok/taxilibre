@@ -1,5 +1,6 @@
 const jwtService = require('../services/jwtService')
 const { User, Driver } = require('../models')
+const { logger } = require('../services/loggingService')
 
 /**
  * Authentication middleware for protecting routes
@@ -11,9 +12,9 @@ const authenticateToken = async (req, res, next) => {
   try {
     // Extract token from header
     const authHeader = req.headers.authorization
-    console.log('Auth middleware: authHeader:', authHeader)
+    logger.debug('Auth middleware: authHeader:', authHeader)
     const token = jwtService.extractTokenFromHeader(authHeader)
-    console.log('Auth middleware: extracted token:', token ? 'present' : 'null')
+    logger.debug('Auth middleware: extracted token:', token ? 'present' : 'null')
 
     if (!token) {
       return res.status(401).json({
@@ -25,13 +26,13 @@ const authenticateToken = async (req, res, next) => {
 
     // Verify token
     const decoded = await jwtService.verifyAccessToken(token)
-    console.log('Auth middleware: decoded token:', decoded)
+    logger.debug('Auth middleware: decoded token:', decoded)
 
     // Find user in database
     let user = await User.findByPk(decoded.id)
-    console.log('Auth middleware: decoded id:', decoded.id, 'user found:', user ? user.id : 'null')
+    logger.debug('Auth middleware: decoded id:', decoded.id, 'user found:', user ? user.id : 'null')
     if (user) {
-      console.log('Auth middleware: user.isActive:', user.isActive)
+      logger.debug('Auth middleware: user.isActive:', user.isActive)
     }
 
     // If user is a driver, get driver info too
@@ -82,7 +83,7 @@ const authenticateToken = async (req, res, next) => {
 
     next()
   } catch (error) {
-    console.log('Auth middleware: error:', error.message)
+    logger.error('Auth middleware: error:', error.message)
     return res.status(401).json({
       success: false,
       message: 'Invalid token',

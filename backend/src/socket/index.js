@@ -1,5 +1,10 @@
 const { Server } = require('socket.io')
+const { createAdapter } = require('@socket.io/redis-adapter')
+const { createClient } = require('redis')
+const { logger } = require('../services/loggingService')
 let io
+let pubClient
+let subClient
 
 function initSocket (server) {
   io = new Server(server, {
@@ -8,6 +13,23 @@ function initSocket (server) {
       methods: ['GET', 'POST']
     }
   })
+
+  // Setup Redis adapter for horizontal scaling
+  const redisHost = process.env.REDIS_HOST || 'localhost'
+  const redisPort = process.env.REDIS_PORT || 6379
+
+  pubClient = createClient({
+    socket: {
+      host: redisHost,
+      port: redisPort
+    }
+  })
+  subClient = pubClient.duplicate()
+
+  pubClient.connect().catch((err) => logger.error('Redis pub client connection error:', err))
+  subClient.connect().catch((err) => logger.error('Redis sub client connection error:', err))
+
+  io.adapter(createAdapter(pubClient, subClient))
 
   // Initialize socket service with IO instance
   const socketService = require('../services/socketService')

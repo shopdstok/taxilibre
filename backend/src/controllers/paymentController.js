@@ -2,12 +2,13 @@ const { Payment, Ride } = require('../models')
 const { sendSuccess, sendError } = require('../utils/response')
 const { stripe } = require('../config/stripe')
 const AppError = require('../middleware/errorMiddleware').AppError
+const { logger } = require('../services/loggingService')
 
 /**
  * Create payment intent for a ride
  */
 const createPaymentIntent = async (req, res, next) => {
-  console.log('Payment Controller: createPaymentIntent called', { reqBody: req.body, userId: req.userId });
+  logger.debug('Payment Controller: createPaymentIntent called', { reqBody: req.body, userId: req.userId });
   try {
     const { rideId, amount, currency = 'eur' } = req.body
 
@@ -21,7 +22,7 @@ const createPaymentIntent = async (req, res, next) => {
       throw new AppError('Ride not found', 404, 'RIDE_NOT_FOUND')
     }
 
-    console.log('Payment Controller: ride passengerId:', ride.passengerId, 'req.userId:', req.userId)
+    logger.debug('Payment Controller: ride passengerId:', ride.passengerId, 'req.userId:', req.userId)
     if (ride.passengerId !== req.userId) {
       throw new AppError('Access denied', 403, 'ACCESS_DENIED')
     }
@@ -72,7 +73,7 @@ const createPaymentIntent = async (req, res, next) => {
       paymentIntentId: paymentIntent.id
     }, 'Payment intent created successfully', 201)
   } catch (error) {
-    console.log('Payment Controller: error caught:', error)
+    logger.error('Payment Controller: error caught:', error)
     next(error)
   }
 }

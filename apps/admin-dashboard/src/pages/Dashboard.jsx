@@ -1,9 +1,11 @@
 import React from 'react';
-import { useQuery } from 'react-query';
+import { useQuery } from '@tanstack/react-query';
 import { adminAPI } from '../services/api.js';
 
 export default function Dashboard() {
-  const { data, isLoading, isError, error } = useQuery('dashboard', adminAPI.getDashboard, {
+  const { data, isLoading, isError, error } = useQuery({
+    queryKey: ['dashboard'],
+    queryFn: adminAPI.getDashboard,
     refetchInterval: 30000, // refetch every 30 seconds for real-time updates
   });
 
@@ -53,18 +55,18 @@ export default function Dashboard() {
     <div className="min-h-screen bg-gray-100 p-8">
       <div className="max-w-6xl mx-auto">
         <h1 className="text-4xl font-bold text-gray-900 mb-8">Admin Dashboard</h1>
-        
+
         <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
           <div className="bg-white rounded-lg shadow p-6">
             <h3 className="text-gray-600 text-sm font-semibold">Total Users</h3>
             <p className="text-3xl font-bold mt-2">{totalUsers.toLocaleString()}</p>
           </div>
-          
+
           <div className="bg-white rounded-lg shadow p-6">
             <h3 className="text-gray-600 text-sm font-semibold">Total Drivers</h3>
             <p className="text-3xl font-bold mt-2">{totalDrivers.toLocaleString()}</p>
           </div>
-          
+
           <div className="bg-white rounded-lg shadow p-6">
             <h3 className="text-gray-600 text-sm font-semibold">Total Rides</h3>
             <p className="text-3xl font-bold mt-2">{totalRides.toLocaleString()}</p>

@@ -10,6 +10,7 @@ try {
   }
 }
 const refreshTokenService = require('./refreshTokenService');
+const { logger } = require('../services/loggingService')
 
 /**
  * Enhanced JWT Service with token rotation and blacklist
@@ -21,7 +22,7 @@ class JWTService {
     this.JWT_EXPIRES_IN = process.env.JWT_EXPIRES_IN || '15m'
     this.JWT_REFRESH_EXPIRES_IN = process.env.JWT_REFRESH_EXPIRES_IN || '7d'
     this.BLACKLIST_PREFIX = 'jwt:blacklist:'
-    console.log('JWTService created with secret:', this.JWT_SECRET.substring(0, 10) + '...') // Log first 10 chars
+    logger.info('JWTService created with secret:', this.JWT_SECRET.substring(0, 10) + '...') // Log first 10 chars
   }
 
   /**
@@ -69,7 +70,7 @@ class JWTService {
    */
   async verifyAccessToken (token) {
     try {
-      console.log('JWTService.verifyAccessToken using secret:', this.JWT_SECRET.substring(0, 10) + '...')
+      logger.debug('JWTService.verifyAccessToken using secret:', this.JWT_SECRET.substring(0, 10) + '...')
       const decoded = jwt.verify(token, this.JWT_SECRET, {
         issuer: 'taxilibre',
         audience: 'taxilibre-users'
@@ -83,7 +84,7 @@ class JWTService {
 
       return decoded
     } catch (error) {
-      console.log('JWTService.verifyAccessToken error:', error.message)
+      logger.error('JWTService.verifyAccessToken error:', error.message)
       throw new Error('Invalid access token')
     }
   }

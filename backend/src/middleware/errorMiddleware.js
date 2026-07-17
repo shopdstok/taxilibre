@@ -1,6 +1,7 @@
 /**
  * Error handling middleware for consistent error responses
  */
+const { logger } = require('../services/loggingService')
 
 /**
  * Handle validation errors
@@ -260,9 +261,9 @@ const logError = (error, req = null) => {
   // In production, send to logging service
   if (process.env.NODE_ENV === 'production') {
     // Would integrate with service like Winston, Loggly, etc.
-    console.log(JSON.stringify(logData)); // fallback
+    logger.error(JSON.stringify(logData)); // fallback
   } else {
-    console.log(JSON.stringify(logData));
+    logger.error(JSON.stringify(logData));
   }
 };
 

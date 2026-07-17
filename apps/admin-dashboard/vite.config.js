@@ -43,6 +43,7 @@ export default defineConfig({
     alias: {
       '@': path.resolve(__dirname, './src'),
       '@shared': path.resolve(__dirname, '../../shared'),
+      'zustand': path.resolve(__dirname, './node_modules/zustand/dist/zustand.esm.js')
     },
   },
   optimizeDeps: {

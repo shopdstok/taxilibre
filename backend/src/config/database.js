@@ -12,8 +12,8 @@ const validateEnv = () => {
   const missingVars = requiredVars.filter(varName => !process.env[varName])
   
   if (missingVars.length > 0) {
-    console.error(`❌ Missing required environment variables: ${missingVars.join(', ')}`)
-    console.error('Please check your .env file in the backend directory')
+    logger.error(`❌ Missing required environment variables: ${missingVars.join(', ')}`)
+    logger.error('Please check your .env file in the backend directory')
     return false
   }
   
@@ -25,8 +25,8 @@ const checkEnvFile = () => {
   const fs = require('fs')
   const envPath = path.resolve(__dirname, '..', '..', '.env')
   if (!fs.existsSync(envPath)) {
-    console.error(`❌ .env file not found at ${envPath}`)
-    console.error('Please create a .env file in the backend directory with required variables')
+    logger.error(`❌ .env file not found at ${envPath}`)
+    logger.error('Please create a .env file in the backend directory with required variables')
   }
 }
 
@@ -37,7 +37,7 @@ const isTest = process.env.NODE_ENV === 'test'
 if (!isTest && !validateEnv()) {
   // In production, we might want to exit, but let's allow startup to continue
   // and fail later when trying to connect to provide clearer error
-  console.warn('⚠️  Continuing with missing environment variables - connection will likely fail')
+  logger.warn('⚠️  Continuing with missing environment variables - connection will likely fail')
 }
 
 let sequelize
@@ -46,7 +46,7 @@ if (isTest) {
   sequelize = new Sequelize({
     dialect: 'sqlite',
     storage: ':memory:',
-    logging: console.log // Log SQL to console for debugging
+    logging: !isProduction ? (msg) => logger.debug(msg) : false // Log SQL to console for debugging
   })
 } else if (isProduction) {
   sequelize = new Sequelize(
@@ -103,7 +103,7 @@ const testConnection = async () => {
     await sequelize.authenticate()
     return true
   } catch (error) {
-    console.error('❌ Unable to connect to the database:', error.message)
+    logger.error('❌ Unable to connect to the database:', error.message)
     return false
   }
 }
@@ -114,7 +114,7 @@ const syncModels = async (force = false) => {
     await sequelize.sync({ force, alter: !force })
     return true
   } catch (error) {
-    console.error('❌ Unable to synchronize database models:', error.message)
+    logger.error('❌ Unable to synchronize database models:', error.message)
     return false
   }
 }

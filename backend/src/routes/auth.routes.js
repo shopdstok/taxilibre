@@ -1,7 +1,7 @@
 const express = require('express')
 const router = express.Router()
 const authController = require('../controllers/authController')
-const { validate, authValidators } = require('../middleware/validation.middleware')
+const { authValidators, rideValidators } = require('../middleware/validation.middleware')
 const rateLimit = require('express-rate-limit')
 let authLimiter
 if (process.env.NODE_ENV === 'test') {
@@ -52,7 +52,7 @@ const { authenticateToken } = require('../middleware/authMiddleware')
  *       400:
  *         description: Données invalides
  */
-router.post('/register', authLimiter, validate(authValidators.register), authController.register)
+router.post('/register', authLimiter, authValidators.register, authController.register)
 
 /**
  * @swagger
@@ -80,7 +80,7 @@ router.post('/register', authLimiter, validate(authValidators.register), authCon
  *       401:
  *         description: Identifiants invalides
  */
-router.post('/login', authLimiter, validate(authValidators.login), authController.login)
+router.post('/login', authLimiter, authValidators.login, authController.login)
 
 /**
  * @swagger
@@ -147,14 +147,14 @@ router.post('/logout', authLimiter, authController.logout)
 router.post('/logout-all', authLimiter, authenticateToken, authController.logoutAll)
 
 // Password reset
-router.post('/forgot-password', authLimiter, validate(authValidators.forgotPassword), authController.requestPasswordReset)
-router.post('/reset-password', authLimiter, validate(authValidators.resetPassword), authController.resetPassword)
+router.post('/forgot-password', authLimiter, authValidators.forgotPassword, authController.requestPasswordReset)
+router.post('/reset-password', authLimiter, authValidators.resetPassword, authController.resetPassword)
 
 // OTP verification
-router.post('/send-phone-otp', authLimiter, validate(authValidators.sendOTP), authController.sendPhoneOTP)
-router.post('/verify-phone-otp', authLimiter, validate(authValidators.verifyOTP), authController.verifyPhoneOTP)
-router.post('/send-email-otp', authLimiter, validate(authValidators.sendOTP), authController.sendEmailOTP)
-router.post('/verify-email-otp', authLimiter, validate(authValidators.verifyOTP), authController.verifyEmailOTP)
+router.post('/send-phone-otp', authLimiter, authValidators.sendOTP, authController.sendPhoneOTP)
+router.post('/verify-phone-otp', authLimiter, authValidators.verifyOTP, authController.verifyPhoneOTP)
+router.post('/send-email-otp', authLimiter, authValidators.sendOTP, authController.sendEmailOTP)
+router.post('/verify-email-otp', authLimiter, authValidators.verifyOTP, authController.verifyEmailOTP)
 
 /**
  * @swagger
@@ -171,7 +171,7 @@ router.post('/verify-email-otp', authLimiter, validate(authValidators.verifyOTP)
  *         description: Non authentifié
  */
 router.get('/profile', authenticateToken, authController.getProfile)
-router.put('/profile', authenticateToken, validate(authValidators.updateProfile), authController.updateProfile)
+router.put('/profile', authenticateToken, authValidators.updateProfile, authController.updateProfile)
 
 // OAuth routes (mounted separately in app.js)
 router.get('/:provider', authenticateToken, authController.oauthRedirect)

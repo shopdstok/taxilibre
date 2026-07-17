@@ -1,7 +1,9 @@
 require('dotenv').config({ override: false })
 
+const { logger } = require('../services/loggingService')
+
 const stripeKey = process.env.STRIPE_SECRET_KEY
-console.log('Stripe key being used:', stripeKey ? stripeKey.substring(0, 10) + '...' : 'undefined')
+logger.info(`Stripe key being used: ${stripeKey ? stripeKey.substring(0, 10) + '...' : 'undefined'}`)
 const stripe = require('stripe')(stripeKey)
 
 const STRIPE_WEBHOOK_SECRET = process.env.STRIPE_WEBHOOK_SECRET
