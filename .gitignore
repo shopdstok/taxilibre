@@ -69,3 +69,20 @@ Thumbs.db
 *.patch
 backend/*test-results.json
 backend/rbac-results.json
+.mcp.json
+backend/test-db.js
+backend/test-pg.js
+backend/test_pooler.js
+backend/test_sequelize.js
+check_info_schema.js
+check_pg_tables.js
+check_tables.js
+create_test_table.js
+db_connect.js
+db_connect2.js
+# Fichiers de test avec secrets
+db_connect*.js
+test_*.js
+check_*.js
+create_test_table.js
+.mcp.json
