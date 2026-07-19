@@ -86,3 +86,4 @@ test_*.js
 check_*.js
 create_test_table.js
 .mcp.json
+.vercel
