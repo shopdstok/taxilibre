@@ -1,4 +1,4 @@
-const logger = require('../utils/logger')
+const { logger } = require('./loggingService')
 
 /**
  * Socket service for managing real-time connections and events

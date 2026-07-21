@@ -12,7 +12,7 @@ const STRIPE_PUBLISHABLE_KEY = process.env.STRIPE_PUBLISHABLE_KEY
 /**
  * Create a payment intent for a ride
  */
-const createPaymentIntent = async (amount, currency = 'usd', metadata = {}) => {
+const createPaymentIntent = async (amount, currency = 'eur', metadata = {}) => {
   try {
     const paymentIntent = await stripe.paymentIntents.create({
       amount: Math.round(amount * 100), // Convert to cents

@@ -94,7 +94,7 @@ const Payment = sequelize.define('Payment', {
   currency: {
     type: DataTypes.STRING(3),
     allowNull: false,
-    defaultValue: 'USD',
+    defaultValue: 'EUR',
     validate: {
       isIn: ['USD', 'EUR', 'GBP', 'CAD', 'AUD']
     }

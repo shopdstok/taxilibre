@@ -44,7 +44,7 @@ function initSocket (server) {
       }
 
       const jwtService = require('../services/jwtService')
-      const decoded = jwtService.verifyAccessToken(token)
+      const decoded = await jwtService.verifyAccessToken(token)
       const { User, Driver } = require('../models')
       const user = await User.findByPk(decoded.id, {
         include: [{

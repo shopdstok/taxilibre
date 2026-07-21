@@ -302,7 +302,7 @@ const cancelRide = async (req, res, next) => {
  */
 const getRide = async (req, res, next) => {
   try {
-    const { rideId } = req.params;
+    const rideId = req.params.id;
     const userId = req.userId;
     const userRole = req.userRole;
 
@@ -464,7 +464,7 @@ const getDriverRideHistory = async (req, res, next) => {
     const { count, rows } = await Ride.findAndCountAll({
       where: whereClause,
       include: [
-        { model: User, as: 'passenger', attributes: ['id', 'firstName', 'lastName', 'phone', 'email'] },
+        { model: User, as: 'passenger', attributes: ['id', 'name', 'phone', 'email'] },
         { model: Vehicle, as: 'vehicle' }
       ],
       order: [['createdAt', 'DESC']],
@@ -717,7 +717,7 @@ const getScheduledRides = async (req, res, next) => {
         }
       },
       include: [
-        { model: User, as: 'passenger', attributes: ['id', 'firstName', 'lastName', 'phone', 'email'] },
+        { model: User, as: 'passenger', attributes: ['id', 'name', 'phone', 'email'] },
         { model: Vehicle, as: 'vehicle' }
       ],
       order: [['scheduledAt', 'ASC']]
@@ -796,7 +796,7 @@ const cancelScheduledRide = async (req, res, next) => {
  */
 const updateRideStatus = async (req, res, next) => {
   try {
-    const { rideId } = req.params;
+    const rideId = req.params.id;
     const { status } = req.body;
     const userId = req.userId;
     const userRole = req.userRole;

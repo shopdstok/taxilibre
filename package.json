@@ -21,5 +21,8 @@
     "docker:down": "docker-compose down",
     "migrate": "cd backend && npm run migrate",
     "seed": "cd backend && npm run seed"
+  },
+  "devDependencies": {
+    "concurrently": "^8.2.2"
   }
 }

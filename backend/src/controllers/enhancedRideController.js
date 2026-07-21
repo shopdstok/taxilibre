@@ -205,8 +205,8 @@ const acceptRide = async (req, res, next) => {
     })
 
     // Notify passenger via WebSocket
-    const io = require('../config/socket')
-    io.to(`passenger_${ride.passengerId}`).emit('ride_accepted', {
+    const { getIO } = require('../socket')
+    getIO().to(`passenger_${ride.passengerId}`).emit('ride_accepted', {
       rideId: ride.id,
       driver: {
         id: driver.id,
@@ -269,8 +269,8 @@ const startRide = async (req, res, next) => {
     })
 
     // Notify passenger
-    const io = require('../config/socket')
-    io.to(`passenger_${ride.passengerId}`).emit('ride_started', {
+    const { getIO } = require('../socket')
+    getIO().to(`passenger_${ride.passengerId}`).emit('ride_started', {
       rideId: ride.id,
       startTime: ride.startTime
     })
@@ -359,8 +359,8 @@ const completeRide = async (req, res, next) => {
     })
 
     // Notify passenger
-    const io = require('../config/socket')
-    io.to(`passenger_${ride.passengerId}`).emit('ride_completed', {
+    const { getIO } = require('../socket')
+    getIO().to(`passenger_${ride.passengerId}`).emit('ride_completed', {
       rideId: ride.id,
       finalFare: finalPricing.totalPrice,
       payment
@@ -547,9 +547,9 @@ const cancelRide = async (req, res, next) => {
     }
 
     // Notify other party
-    const io = require('../config/socket')
+    const { getIO } = require('../socket')
     const notificationTarget = userRole === 'passenger' ? `driver_${ride.driverId}` : `passenger_${ride.passengerId}`
-    io.to(notificationTarget).emit('ride_cancelled', {
+    getIO().to(notificationTarget).emit('ride_cancelled', {
       rideId: ride.id,
       cancelledBy: userRole,
       reason,

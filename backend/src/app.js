@@ -6,7 +6,7 @@ const rateLimit = require('express-rate-limit')
 const { errorHandler } = require('./middleware/errorMiddleware')
 const swaggerUi = require('swagger-ui-express')
 const swaggerSpec = require('./config/swagger')
-const logger = require("./utils/logger");
+const { logger } = require("./services/loggingService");
 
 //
 // Patch pour ignorer Redis (car non utilisé)
@@ -77,11 +77,22 @@ app.use(cors({
 const limiter = rateLimit({
   windowMs: 15 * 60 * 1000,
   max: 100,
-  skip: (req) => {
-    return req.path.startsWith('/api/v1/auth');
-  },
+
   message: 'Too many requests from this IP, please try again later.'
 })
+
+// Stricter rate limiting for auth endpoints (anti brute-force)
+const authLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 10, // 10 attempts per window
+  message: { success: false, error: 'Too many auth attempts, please try again later.' },
+  standardHeaders: true,
+  legacyHeaders: false,
+})
+app.use('/api/v1/auth', authLimiter)
+app.use('/api/v1/oauth', authLimiter)
+app.use('/api/v1/mfa', authLimiter)
+
 app.use('/api/', limiter)
 
 // Body parsing middleware
