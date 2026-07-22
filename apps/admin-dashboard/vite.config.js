@@ -40,12 +40,11 @@ export default defineConfig({
     assetsInlineLimit: 4096,
   },
   resolve: {
-    alias: {
-      '@': path.resolve(__dirname, './src'),
-      '@shared': path.resolve(__dirname, '../../shared'),
-      'zustand': path.resolve(__dirname, './node_modules/zustand/dist/zustand.esm.js')
-    },
+  alias: {
+    '@': path.resolve(__dirname, './src'),
+    '@shared': path.resolve(__dirname, '../../shared'),
   },
+},
   optimizeDeps: {
     include: ['react', 'react-dom', 'react-router-dom'],
   },
