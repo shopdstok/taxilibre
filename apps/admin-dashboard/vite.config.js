@@ -43,10 +43,10 @@ export default defineConfig({
     alias: {
       '@': path.resolve(__dirname, './src'),
       '@shared': path.resolve(__dirname, '../../shared'),
-      // ✅ Alias explicite pour zustand
+      // ✅ Alias explicites pour les modules qui posent problème
       'zustand': path.resolve(__dirname, 'node_modules/zustand'),
+      'axios': path.resolve(__dirname, 'node_modules/axios'),
     },
-    // ✅ Liste des dossiers où chercher les modules
     modules: [
       path.resolve(__dirname, 'node_modules'),
       path.resolve(__dirname, '../../node_modules'),
@@ -54,7 +54,13 @@ export default defineConfig({
     ],
   },
   optimizeDeps: {
-    include: ['react', 'react-dom', 'react-router-dom', 'zustand'],
+    include: [
+      'react',
+      'react-dom',
+      'react-router-dom',
+      'zustand',
+      'axios', // ✅ ajouté
+    ],
   },
   define: {
     __APP_VERSION__: JSON.stringify(process.env.npm_package_version),
