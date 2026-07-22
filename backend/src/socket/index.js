@@ -95,15 +95,14 @@ function initSocket (server) {
       })
 
       // Handle ride acceptance
-      socket.on('accept-ride', async (data) => {
+      socket.on('driver:accept_ride', async (data) => {
         const { rideId } = data
-        if (rideId) {
+        if (rideId && socket.driverId) {
           const matchingService = require('../services/matchingService')
           try {
-            await matchingService.handleAcceptRide({ rideId, driverId: socket.userId })
-            // The matching service handles notifications to both passenger and driver
+            await matchingService.handleAcceptRide({ rideId, driverId: socket.driverId })
           } catch (error) {
-            socket.emit('accept-ride-error', { message: 'Failed to accept ride' })
+            socket.emit('ride:error', { message: 'Failed to accept ride', rideId })
           }
         }
       })
@@ -126,6 +125,23 @@ function initSocket (server) {
           } catch (error) {
           }
         }
+      })
+
+      // Frontend emits 'ride_cancel' when passenger cancels a ride
+      socket.on('ride_cancel', (data) => {
+        const { rideId, reason } = data
+        if (rideId) {
+          io.to('ride:' + rideId).emit('ride_cancelled', {
+            rideId,
+            cancelledBy: 'passenger',
+            reason: reason || 'Cancelled by passenger'
+          })
+        }
+      })
+
+      // Frontend emits 'ride_request' - acknowledge is handled via REST API
+      socket.on('ride_request', (data) => {
+        socket.emit('ride_request_received', { status: 'processing' })
       })
     }
 

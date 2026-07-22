@@ -42,59 +42,39 @@ if (!isTest && !validateEnv()) {
 
 let sequelize
 
+// Database URL (with fallback construction from individual env vars)
+const databaseUrl = process.env.DATABASE_URL ||
+  `postgresql://${process.env.DB_USER}:${process.env.DB_PASSWORD}@${process.env.DB_HOST}:${process.env.DB_PORT}/${process.env.DB_NAME}`
+
+// Connection pool configuration
+const poolConfig = {
+  max: 20,
+  min: 5,
+  acquire: 30000,
+  idle: isProduction ? 1000 : 10000
+}
+
+// SSL required for cloud-hosted PostgreSQL (Supabase, RDS, etc.)
+const dialectOptions = isProduction
+  ? { ssl: { require: true, rejectUnauthorized: false } }
+  : {}
+
 if (isTest) {
+  // In-memory SQLite for fast isolated tests
   sequelize = new Sequelize({
     dialect: 'sqlite',
     storage: ':memory:',
-    logging: !isProduction ? (msg) => logger.debug(msg) : false // Log SQL to console for debugging
+    logging: false
   })
-} else if (isProduction) {
-  sequelize = new Sequelize(
-    process.env.DATABASE_URL || `postgresql://${process.env.DB_USER}:${process.env.DB_PASSWORD}@${process.env.DB_HOST}:${process.env.DB_PORT}/${process.env.DB_NAME}`,
-    {
-      dialect: 'postgres',
-      dialectModule: pg, // Utilise le module explicitement importé
-      logging: !isProduction ? (msg) => logger.debug(msg) : false,
-      pool: {
-        max: 20,
-        min: 5,
-        acquire: 30000,
-        idle: 1000
-      },
-      dialectOptions: isProduction
-        ? {
-            ssl: {
-              require: true,
-              rejectUnauthorized: false
-            }
-          }
-        : {}
-    }
-  )
 } else {
-  // Development
-  sequelize = new Sequelize(
-    process.env.DATABASE_URL || `postgresql://${process.env.DB_USER}:${process.env.DB_PASSWORD}@${process.env.DB_HOST}:${process.env.DB_PORT}/${process.env.DB_NAME}`,
-    {
-      dialect: 'postgres',
-      dialectModule: pg, // Utilise le module explicitement importé
-      logging: !isProduction ? (msg) => logger.debug(msg) : false,
-      pool: {
-        max: 20,
-        min: 5,
-        acquire: 30000,
-        idle: 10000
-      },
-      dialectOptions: isProduction
-        ? {
-            ssl: {
-              require: true,
-              rejectUnauthorized: false
-            }
-          }
-        : {}
-    }
-  )
+  // PostgreSQL (development, staging, production)
+  sequelize = new Sequelize(databaseUrl, {
+    dialect: 'postgres',
+    dialectModule: pg,
+    logging: isProduction ? false : (msg) => logger.debug(msg),
+    pool: poolConfig,
+    dialectOptions
+  })
 }
 
 // Test connection

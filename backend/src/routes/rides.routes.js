@@ -207,4 +207,37 @@ router.get('/:id', rideController.getRide);
  */
 router.patch('/:id/status', rideController.updateRideStatus);
 
+// Driver actions on rides
+router.post('/:id/accept', authorizeRoles('driver'), rideController.acceptRide);
+router.post('/:id/start', authorizeRoles('driver'), rideController.startRide);
+router.post('/:id/complete', authorizeRoles('driver'), rideController.completeRide);
+
+// Cancel ride (passenger, driver, or admin)
+router.post('/cancel', rideController.cancelRide);
+
+// Price estimation
+router.post('/estimate', rideController.estimateRide);
+
+// Rating after ride
+router.post('/:rideId/rate', rideController.rateRide);
+router.post('/:rideId/report-issue', rideController.reportIssue);
+
+// Scheduled rides
+router.post('/schedule', rideController.scheduleRide);
+router.get('/scheduled', rideController.getScheduledRides);
+router.post('/scheduled/:rideId/cancel', rideController.cancelScheduledRide);
+
+// Driver-specific routes
+router.get('/driver/history', authorizeRoles('driver'), rideController.getDriverRideHistory);
+router.get('/driver/stats', authorizeRoles('driver'), rideController.getDriverStats);
+
+// Driver: get ride requests (open rides to accept)
+router.get('/requests', authorizeRoles('driver'), rideController.getUserRides);
+// Driver: get active ride
+router.get('/active', rideController.getUserRides);
+// End ride (driver-web compatibility alias)
+router.post('/:id/end', authorizeRoles('driver'), rideController.completeRide);
+// Cancel ride (driver-web compatibility alias)
+router.post('/:id/cancel', rideController.cancelRide);
+
 module.exports = router;

@@ -58,9 +58,13 @@ class SocketService {
    * Send notification to specific user
    */
   sendToUser (userId, event, data) {
+    if (!this.io) return
     const socketId = this.connectedUsers.get(userId)
-    if (socketId && this.io) {
+    if (socketId) {
       this.io.to(socketId).emit(event, data)
+    } else {
+      // Fallback: emit to user room (set up in socket/index.js)
+      this.io.to('user:' + userId).emit(event, data)
     }
   }
 
@@ -68,9 +72,14 @@ class SocketService {
    * Send notification to specific driver
    */
   sendToDriver (driverId, event, data) {
+    if (!this.io) return
     const socketId = this.connectedDrivers.get(driverId)
-    if (socketId && this.io) {
+    if (socketId) {
       this.io.to(socketId).emit(event, data)
+    } else {
+      // Fallback: emit to driver-specific room (set up in socket/index.js)
+      this.io.to('driver:' + driverId).emit(event, data)
+      this.io.to('user:' + driverId).emit(event, data)
     }
   }
 
@@ -150,7 +159,13 @@ class SocketService {
    */
   sendRideStatusUpdate (rideId, status, data = {}) {
     const ride = this.activeRides.get(rideId)
-    if (!ride) return
+    if (!ride) {
+      if (this.io) {
+        const eventName = ('ride_' + status).replace(/_/g, '_')
+        this.io.to('ride:' + rideId).emit('ride_' + status, { rideId, ...data })
+      }
+      return
+    }
 
     const updateData = {
       rideId,
@@ -159,12 +174,19 @@ class SocketService {
       ...data
     }
 
-    // Send to passenger
-    this.sendToUser(ride.passengerId, 'ride:status:updated', updateData)
+    const eventMap = {
+      'accepted': 'ride_accepted',
+      'started': 'ride_started',
+      'arriving': 'driver_arriving',
+      'arrived': 'driver_arrived',
+      'completed': 'ride_completed',
+      'cancelled': 'ride_cancelled'
+    }
+    const eventName = eventMap[status] || ('ride:status:' + status)
 
-    // Send to driver if assigned
+    this.sendToUser(ride.passengerId, eventName, updateData)
     if (ride.driverId) {
-      this.sendToDriver(ride.driverId, 'ride:status:updated', updateData)
+      this.sendToDriver(ride.driverId, eventName, updateData)
     }
   }
 
@@ -226,6 +248,14 @@ class SocketService {
    */
   addActiveRide (rideId, rideData) {
     this.activeRides.set(rideId, rideData)
+    if (this.io && rideData.passengerId) {
+      const ps = this.connectedUsers.get(rideData.passengerId)
+      if (ps) this.io.to(ps).socketsJoin('ride:' + rideId)
+    }
+    if (this.io && rideData.driverId) {
+      const ds = this.connectedDrivers.get(rideData.driverId)
+      if (ds) this.io.to(ds).socketsJoin('ride:' + rideId)
+    }
   }
 
   /**

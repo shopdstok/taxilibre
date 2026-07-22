@@ -63,7 +63,7 @@ const errorHandler = require('./errorMiddleware')
 const authMiddleware = require('./authMiddleware')
 const adminMiddleware = require('./adminMiddleware')
 const csrfMiddleware = require('./csrfMiddleware')
-const validationMiddleware = require('./validationMiddleware')
+const validationMiddleware = require('./validation.middleware')
 
 module.exports = {
   requestLogger,

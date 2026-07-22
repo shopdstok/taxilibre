@@ -1,4 +1,4 @@
-const { Ride, User, Driver, Vehicle, Payment } = require('../models');
+const { Ride, User, Driver, Vehicle, Payment, RideStatus } = require('../models');
 const { sendSuccess, sendError } = require('../utils/response');
 const AppError = require('../middleware/errorMiddleware').AppError;
 const pricingService = require('../services/pricingService');
@@ -36,11 +36,39 @@ const requestRide = async (req, res, next) => {
       throw new AppError('Pickup and dropoff coordinates are required', 400, 'MISSING_COORDINATES');
     }
 
-    // Request ride through matching service (handles ride creation and driver matching)
+    // Calculate distance, duration and pricing first
+    const distanceKm = calculateDistance(
+      pickupLatitude, pickupLongitude,
+      dropoffLatitude, dropoffLongitude
+    );
+    const durationMinutes = Math.ceil(distanceKm * 2);
+
+    const pricing = await pricingService.calculateRidePrice({
+      distanceKm,
+      durationMinutes,
+      vehicleType,
+      pickupLatitude,
+      pickupLongitude,
+      rideTime: new Date()
+    });
+
+    // Request ride through matching service with full ride options
     const rideId = await matchingService.handleCreateRide(
       { lat: pickupLatitude, lng: pickupLongitude },
       { lat: dropoffLatitude, lng: dropoffLongitude },
-      passengerId
+      passengerId,
+      {
+        pickupAddress: pickupAddress || (pickupLatitude + ', ' + pickupLongitude),
+        dropoffAddress: dropoffAddress || (dropoffLatitude + ', ' + dropoffLongitude),
+        estimatedDistance: distanceKm,
+        estimatedDuration: durationMinutes,
+        baseFare: pricing.basePricing.baseFare,
+        pricePerKm: pricing.basePricing.pricePerKm,
+        pricePerMinute: pricing.basePricing.pricePerMinute,
+        totalPrice: pricing.finalPrice,
+        paymentMethod: paymentMethod || 'card',
+        vehicleType
+      }
     );
 
     // Fetch the created ride to return in response
@@ -54,32 +82,8 @@ const requestRide = async (req, res, next) => {
       throw new AppError('Ride not found after creation', 404, 'RIDE_NOT_FOUND');
     }
 
-    // Calculate distance and duration (for pricing and response)
-    const distanceKm = calculateDistance(
-      pickupLatitude, pickupLongitude,
-      dropoffLatitude, dropoffLongitude
-    );
-    const durationMinutes = Math.ceil(distanceKm * 2); // Rough estimate
-
-    // Calculate price
-    const pricing = await pricingService.calculateRidePrice({
-      distanceKm,
-      durationMinutes,
-      vehicleType,
-      pickupLatitude,
-      pickupLongitude,
-      rideTime: new Date()
-    });
-
-    // Update ride with pricing information (since matching service doesn't handle pricing)
+    // Update ride with surge multiplier (pricing already set via rideOptions)
     await ride.update({
-      estimatedDistance: distanceKm,
-      estimatedDuration: durationMinutes,
-      baseFare: pricing.basePricing.baseFare,
-      pricePerKm: pricing.basePricing.pricePerKm,
-      pricePerMinute: pricing.basePricing.pricePerMinute,
-      totalPrice: pricing.finalPrice,
-      paymentMethod,
       surgeMultiplier: pricing.surgeInfo?.multiplier || 1.0
     });
 
@@ -100,8 +104,12 @@ const requestRide = async (req, res, next) => {
  */
 const acceptRide = async (req, res, next) => {
   try {
-    const { rideId } = req.body;
+    const rideId = req.params.id || req.body.rideId;
     const driverId = req.driverId;
+
+    if (!rideId) {
+      throw new AppError('Ride ID is required', 400, 'MISSING_RIDE_ID');
+    }
 
     // Accept ride through matching service (handles validation, database update, and notifications)
     await matchingService.handleAcceptRide({ rideId, driverId });
@@ -139,8 +147,12 @@ const acceptRide = async (req, res, next) => {
  */
 const startRide = async (req, res, next) => {
   try {
-    const { rideId } = req.body;
+    const rideId = req.params.id || req.body.rideId;
     const driverId = req.driverId;
+
+    if (!rideId) {
+      throw new AppError('Ride ID is required', 400, 'MISSING_RIDE_ID');
+    }
 
     const ride = await Ride.findByPk(rideId);
     if (!ride) {
@@ -151,13 +163,13 @@ const startRide = async (req, res, next) => {
       throw new AppError('You are not assigned to this ride', 403, 'NOT_ASSIGNED');
     }
 
-    if (ride.status !== 'accepted') {
+    if (ride.status !== RideStatus.ACCEPTED) {
       throw new AppError('Ride cannot be started', 400, 'RIDE_CANNOT_START');
     }
 
     // Update ride
     await ride.update({
-      status: 'ride_started',
+      status: RideStatus.RIDE_STARTED,
       rideStartTime: new Date()
     });
 
@@ -178,8 +190,13 @@ const startRide = async (req, res, next) => {
  */
 const completeRide = async (req, res, next) => {
   try {
-    const { rideId, actualDistance, actualDuration, finalPrice } = req.body;
+    const rideId = req.params.id || req.body.rideId;
+    const { actualDistance, actualDuration, finalPrice } = req.body;
     const driverId = req.driverId;
+
+    if (!rideId) {
+      throw new AppError('Ride ID is required', 400, 'MISSING_RIDE_ID');
+    }
 
     const ride = await Ride.findByPk(rideId);
     if (!ride) {
@@ -190,7 +207,7 @@ const completeRide = async (req, res, next) => {
       throw new AppError('You are not assigned to this ride', 403, 'NOT_ASSIGNED');
     }
 
-    if (ride.status !== 'ride_started') {
+    if (ride.status !== RideStatus.RIDE_STARTED) {
       throw new AppError('Ride cannot be completed', 400, 'RIDE_CANNOT_COMPLETE');
     }
 
@@ -199,7 +216,7 @@ const completeRide = async (req, res, next) => {
 
     // Update ride
     await ride.update({
-      status: 'ride_completed',
+      status: RideStatus.RIDE_COMPLETED,
       actualDistance: actualDistance || ride.estimatedDistance,
       actualDuration: actualDuration || ride.estimatedDuration,
       finalPrice: calculatedFinalPrice,
@@ -226,13 +243,14 @@ const completeRide = async (req, res, next) => {
       driverEarnings: calculatedFinalPrice * 0.85
     });
 
-    // Notify passenger
+    // Notify passenger via socket
     const socketService = require('../services/socketService');
     socketService.sendRideStatusUpdate(rideId, 'completed', {
       finalPrice: calculatedFinalPrice,
-      actualDistance,
-      actualDuration
+      actualDistance: actualDistance || ride.estimatedDistance,
+      actualDuration: actualDuration || ride.estimatedDuration
     });
+    socketService.removeActiveRide(rideId);
 
     sendSuccess(res, {
       ride: ride.toJSON(),
@@ -248,7 +266,8 @@ const completeRide = async (req, res, next) => {
  */
 const cancelRide = async (req, res, next) => {
   try {
-    const { rideId, reason } = req.body;
+    const rideId = req.params.id || req.body.rideId;
+    const { reason } = req.body;
     const userId = req.userId;
     const userRole = req.userRole;
 
@@ -282,12 +301,14 @@ const cancelRide = async (req, res, next) => {
       );
     }
 
-    // Notify other party
+    // Notify other party via socket
     const socketService = require('../services/socketService');
+    socketService.addActiveRide(rideId, { passengerId: ride.passengerId, driverId: ride.driverId });
     socketService.sendRideStatusUpdate(rideId, 'cancelled', {
       reason,
       cancelledBy: userRole
     });
+    socketService.removeActiveRide(rideId);
 
     sendSuccess(res, {
       ride: ride.toJSON()
@@ -598,7 +619,7 @@ const rateRide = async (req, res, next) => {
       throw new AppError('Unauthorized to rate this ride', 403, 'UNAUTHORIZED');
     }
 
-    if (ride.status !== 'completed') {
+    if (ride.status !== RideStatus.RIDE_COMPLETED) {
       throw new AppError('Can only rate completed rides', 400, 'RIDE_NOT_COMPLETED');
     }
 
@@ -783,7 +804,7 @@ const cancelScheduledRide = async (req, res, next) => {
     }
 
     // Update the ride status to cancelled
-    await ride.update({ status: 'cancelled', cancelledAt: new Date() });
+    await ride.update({ status: RideStatus.CANCELLED, cancelledAt: new Date() });
 
     sendSuccess(res, { rideId: ride.id }, 'Scheduled ride cancelled successfully');
   } catch (error) {
@@ -820,10 +841,10 @@ const updateRideStatus = async (req, res, next) => {
 
     // Map status from API to database values
     const statusMap = {
-      accepted: 'accepted',
-      in_progress: 'ride_started',
-      completed: 'ride_completed',
-      cancelled: 'cancelled'
+      accepted: RideStatus.ACCEPTED,
+      in_progress: RideStatus.RIDE_STARTED,
+      completed: RideStatus.RIDE_COMPLETED,
+      cancelled: RideStatus.CANCELLED
     };
     const dbStatus = statusMap[status];
 

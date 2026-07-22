@@ -5,79 +5,66 @@ try {
   Redis = redisModule.Redis || redisModule
   redisClient = redisModule.client || redisModule
 } catch (e) {
-  // Mock Redis implementation for testing
   const geoData = new Map()
   const keyValueStore = new Map()
 
-  Redis = {
-    georadius: async (key, lng, lat, radius, unit, ...args) => {
-      // Return empty array - no drivers found
-      return []
-    },
-    geoAdd: async (key, lng, lat, member) => {
-      geoData.set(member, { lng, lat })
-      return 1
-    },
-    del: async (key) => {
-      keyValueStore.delete(key)
-      geoData.delete(key)
-      return 1
-    },
+  Redis = redisClient = {
+    georadius: async (_key, _lng, _lat, _radius, _unit, ..._args) => [],
+    geoAdd: async (key, lng, lat, member) => { geoData.set(member, { lng, lat }); return 1 },
+    del: async (key) => { keyValueStore.delete(key); geoData.delete(key); return 1 },
     setex: async (key, expiry, value) => {
-      keyValueStore.set(key, { value, expires: Date.now() + (expiry * 1000) })
-      return true
-    }
-  }
-
-  redisClient = {
-    georadius: async (key, lng, lat, radius, unit, ...args) => {
-      // Return empty array - no drivers found
-      return []
+      keyValueStore.set(key, { value, expires: Date.now() + (expiry * 1000) }); return true
     }
   }
 }
 const crypto = require('crypto')
 const uuidv4 = () => crypto.randomUUID()
-const { createRideSchema, acceptRideSchema } = require('../validators/rideValidator')
-const { RideStatus } = require('../shared/types/ride')
 const { logger } = require('./loggingService')
 const models = require('../models')
 const socketService = require('./socketService')
 
 const GEO_KEY = 'driver:locations'
-const REQUEST_TIMEOUT_KEY = 'ride-request:'
+const REQUEST_TIMEOUT_KEY = 'ride:request:'
 const MATCH_TIMEOUT_MS = 30_000
 const MAX_ATTEMPTS = 3
 const INITIAL_SEARCH_RADIUS_M = 500
 
 class RideMatchingService {
-  constructor () {}
+  constructor() {}
 
-  async handleCreateRide (pickup, destination, passengerId) {
-    const parsed = createRideSchema.parse({ pickup, destination })
+  async handleCreateRide(pickup, destination, passengerId, rideOptions = {}) {
     const rideId = uuidv4()
 
     try {
       await models.Ride.create({
         id: rideId,
         passengerId,
-        pickupLat: parsed.pickup.lat,
-        pickupLng: parsed.pickup.lng,
-        destinationLat: parsed.destination?.lat ?? null,
-        destinationLng: parsed.destination?.lng ?? null,
+        pickupLatitude: pickup.lat,
+        pickupLongitude: pickup.lng,
+        pickupAddress: rideOptions.pickupAddress || rideOptions.pickupAddress || `${pickup.lat}, ${pickup.lng}`,
+        dropoffLatitude: destination?.lat ?? 0,
+        dropoffLongitude: destination?.lng ?? 0,
+        dropoffAddress: rideOptions.dropoffAddress || `${destination?.lat ?? 0}, ${destination?.lng ?? 0}`,
+        estimatedDistance: rideOptions.estimatedDistance || 0,
+        estimatedDuration: rideOptions.estimatedDuration || 0,
+        baseFare: rideOptions.baseFare || 0,
+        pricePerKm: rideOptions.pricePerKm || 0,
+        pricePerMinute: rideOptions.pricePerMinute || 0,
+        totalPrice: rideOptions.totalPrice || 0,
+        paymentMethod: rideOptions.paymentMethod || 'card',
         status: models.RideStatus.REQUESTED,
-        createdAt: new Date()
+        requestedAt: new Date()
       })
 
-      await this.startMatchingProcess(rideId, parsed.pickup, passengerId)
+      await this.startMatchingProcess(rideId, pickup, passengerId)
       return rideId
     } catch (error) {
-      logger.error('Échec création trajet dans matching service', { error, rideId, pickup })
+      logger.error('Echec creation trajet dans matching service', { error, rideId, pickup })
       throw error
     }
   }
 
-  async startMatchingProcess (rideId, pickup, passengerId) {
+  async startMatchingProcess(rideId, pickup, passengerId) {
     let attempt = 0
 
     const attemptMatch = async (currentRadiusM) => {
@@ -90,10 +77,10 @@ class RideMatchingService {
       )
 
       if (!drivers.length) {
-        logger.warn(`Aucun conducteur trouvé dans rayon ${currentRadiusM}m`, { rideId, attempt })
+        logger.warn(`Aucun conducteur trouve dans rayon ${currentRadiusM}m`, { rideId, attempt })
         if (attempt < MAX_ATTEMPTS) return attemptMatch(currentRadiusM * 2)
 
-        socketService.sendToUser(passengerId, 'ride-not-found', { rideId, reason: 'timeout_after_max_attempts' })
+        socketService.sendToUser(passengerId, 'ride:no_driver', { rideId, reason: 'timeout_after_max_attempts' })
         return
       }
 
@@ -110,27 +97,27 @@ class RideMatchingService {
         createdAt: new Date().toISOString()
       }
 
-      driverSockets.forEach(driverId => socketService.sendToDriver(driverId, 'ride-request', requestData))
-      logger.info(`Demande de trajet envoyée à ${driverSockets.length} conducteurs`, { rideId, attempt, radius: currentRadiusM })
+      driverSockets.forEach(driverId => socketService.sendToDriver(driverId, 'ride:requested', requestData))
+      logger.info(`Demande de trajet envoyee a ${driverSockets.length} conducteurs`, { rideId, attempt, radius: currentRadiusM })
 
       const timeoutId = setTimeout(async () => {
         try {
           const ride = await models.Ride.findByPk(rideId, { attributes: ['status', 'driverId'] })
           if (!ride) return logger.warn(`Trajet ${rideId} introuvable pendant timeout`, {})
 
-          if (ride.status === models.RideStatus.REQUESTED) {
-            if (attempt < MAX_ATTEMPTS) {
-              clearTimeout(timeoutId)
-              return attemptMatch(currentRadiusM * 2)
-            }
-            logger.warn(`Échec matching après ${MAX_ATTEMPTS} tentatives`, { rideId, attempt })
-            socketService.sendToUser(passengerId, 'ride-not-found', { rideId, reason: 'timeout_after_max_attempts' })
+          try {
+            await ride.update({ status: models.RideStatus.EXPIRED })
+          } catch (updateErr) {
+            logger.warn(`Impossible de mettre a jour le trajet expire`, { rideId })
           }
+          socketService.sendToUser(passengerId, 'ride:no_driver', { rideId, reason: 'timeout_after_max_attempts' })
         } catch (error) {
-          logger.error('Erreur pendant vérification timeout matching', { error, rideId })
+          logger.error('Erreur pendant verification timeout matching', { error, rideId })
         } finally {
           await Redis.del(`${REQUEST_TIMEOUT_KEY}${rideId}:timeout`)
-        }
+          }
+
+        if (timeoutId) clearTimeout(timeoutId)
       }, MATCH_TIMEOUT_MS)
 
       await Redis.setex(`${REQUEST_TIMEOUT_KEY}${rideId}:timeout`, MATCH_TIMEOUT_MS / 1000,
@@ -140,59 +127,60 @@ class RideMatchingService {
     return attemptMatch(INITIAL_SEARCH_RADIUS_M)
   }
 
-  async handleAcceptRide (data) {
+  async handleAcceptRide(data) {
     const { rideId, driverId } = data
     const startTime = Date.now()
 
     try {
-      const parsed = acceptRideSchema.parse({ rideId, driverId })
-      const ride = await models.Ride.findByPk(parsed.rideId, { attributes: ['id', 'status', 'passengerId', 'driverId'] })
+      const ride = await models.Ride.findByPk(rideId, {
+        attributes: ['id', 'status', 'passengerId', 'driverId', 'pickupLatitude', 'pickupLongitude']
+      })
 
-      if (!ride) throw new Error(`Trajet ${parsed.rideId} introuvable`)
+      if (!ride) throw new Error(`Trajet ${rideId} introuvable`)
 
       if (ride.status !== models.RideStatus.REQUESTED) {
-        logger.warn('Tentative d\'acceptation sur trajet non disponible', {
-          rideId: parsed.rideId, expectedStatus: models.RideStatus.REQUESTED,
-          actualStatus: ride.status, requestingDriver: parsed.driverId, currentDriver: ride.driverId
+        logger.warn("Tentative d'acceptation sur trajet non disponible", {
+          rideId, expectedStatus: models.RideStatus.REQUESTED,
+          actualStatus: ride.status, requestingDriver: driverId, currentDriver: ride.driverId
         })
-        socketService.sendToDriver(parsed.driverId, 'ride-already-taken', { rideId: parsed.rideId })
+        socketService.sendToDriver(driverId, 'ride:already_taken', { rideId })
         return
       }
 
       await models.sequelize.transaction(async (t) => {
         await models.Ride.update(
-          { driverId: parsed.driverId, status: models.RideStatus.ASSIGNED, assignedAt: new Date() },
-          { where: { id: parsed.rideId }, transaction: t }
+          { driverId, status: models.RideStatus.ACCEPTED, acceptedAt: new Date() },
+          { where: { id: rideId }, transaction: t }
         )
       })
 
-      const etaMinutes = Math.max(5, Math.round(
-        (this.haversineDistance(ride.pickupLat, ride.pickupLng, 0, 0) * 1000) / (20 * 1000 / 60)
+      const etaMinutes = Math.max(3, Math.round(
+        (this.haversineDistance(ride.pickupLatitude, ride.pickupLongitude, 0, 0) * 1000) / (20 * 1000 / 60)
       ))
 
-      const matchData = { rideId: parsed.rideId, driverId: parsed.driverId, eta: etaMinutes }
+      const matchData = { rideId, driverId, eta: etaMinutes }
 
-      socketService.sendToUser(ride.passengerId, 'ride-matched', matchData)
-      socketService.sendToDriver(parsed.driverId, 'ride-matched', { ...matchData, passengerId: ride.passengerId })
+      socketService.sendToUser(ride.passengerId, 'ride_accepted', matchData)
+      socketService.sendToDriver(driverId, 'ride_accepted', { ...matchData, passengerId: ride.passengerId })
 
-      logger.info('Trajet matching réussi', {
-        rideId: parsed.rideId, driverId: parsed.driverId, passengerId: ride.passengerId,
+      logger.info('Trajet matching reussi', {
+        rideId, driverId, passengerId: ride.passengerId,
         durationMs: Date.now() - startTime, attempt: 1
       })
 
-      await Redis.del(`${REQUEST_TIMEOUT_KEY}${parsed.rideId}:timeout`)
+      await Redis.del(`${REQUEST_TIMEOUT_KEY}${rideId}:timeout`)
     } catch (error) {
       if (error.message?.includes('Trajet introuvable')) {
-        socketService.sendToDriver(driverId, 'error', { message: 'Trajet introuvable ou déjà traité' })
+        socketService.sendToDriver(driverId, 'error', { message: 'Trajet introuvable ou deja traite' })
       } else {
-        logger.error('Échec acceptation trajet dans matching service', { error, rideId: parsed?.rideId, driverId })
+        logger.error('Echec acceptation trajet dans matching service', { error, rideId, driverId })
         socketService.sendToDriver(driverId, 'error', { message: 'Erreur interne du serveur' })
       }
       throw error
     }
   }
 
-  async updateDriverLocation (driverId, lat, lng) {
+  async updateDriverLocation(driverId, lat, lng) {
     if (this.isValidCoordinate(lat, lng)) {
       await Redis.geoAdd(GEO_KEY, lng, lat, driverId)
       logger.debug('Position conducteur mise à jour', { driverId, lat, lng })
@@ -201,7 +189,7 @@ class RideMatchingService {
     }
   }
 
-  haversineDistance (lat1, lon1, lat2, lon2) {
+  haversineDistance(lat1, lon1, lat2, lon2) {
     const R = 6371
     const dLat = this.toRad(lat2 - lat1)
     const dLon = this.toRad(lon2 - lon1)
@@ -210,10 +198,9 @@ class RideMatchingService {
     return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a))
   }
 
-  toRad (degrees) { return degrees * Math.PI / 180 }
+  toRad(degrees) { return degrees * Math.PI / 180 }
 
-  isValidCoordinate (lat, lng) { return lat >= -90 && lat <= 90 && lng >= -180 && lng <= 180 }
+  isValidCoordinate(lat, lng) { return lat >= -90 && lat <= 90 && lng >= -180 && lng <= 180 }
 }
 
 module.exports = new RideMatchingService()
-
