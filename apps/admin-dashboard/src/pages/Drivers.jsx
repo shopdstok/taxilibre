@@ -7,26 +7,29 @@ export default function Drivers() {
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
 
-  const { data: drivers = [], isLoading, isError, error } = useQuery('drivers', adminAPI.getDrivers, {
-    // Optionally pass filters as query params
-    // For now we fetch all and filter client-side
-  });
+  const { data: drivers = [], isLoading, isError, error } = useQuery(
+    'drivers',
+    adminAPI.getDrivers,
+    {
+      // On pourrait passer des filtres en paramètres, mais on filtre côté client
+    }
+  );
 
-  // Mutation for updating driver status (activate/deactivate)
+  // Mutation pour activer/désactiver un chauffeur
   const updateStatusMutation = useMutation(
     ({ driverId, status }) => adminAPI.updateDriverStatus(driverId, { status }),
     {
       onSuccess: () => {
         queryClient.invalidateQueries('drivers');
-        queryClient.invalidateQueries('dashboard'); // dashboard may need update
+        queryClient.invalidateQueries('dashboard');
       },
       onError: (err) => {
-        alert(`Failed to update driver status: ${err.message}`);
+        alert(`Erreur lors de la mise à jour du statut : ${err.message}`);
       }
     }
   );
 
-  // Mutation for suspending driver
+  // Mutation pour suspendre un chauffeur
   const suspendMutation = useMutation(
     ({ driverId, reason }) => adminAPI.suspendDriver(driverId, { reason }),
     {
@@ -35,21 +38,24 @@ export default function Drivers() {
         queryClient.invalidateQueries('dashboard');
       },
       onError: (err) => {
-        alert(`Failed to suspend driver: ${err.message}`);
+        alert(`Erreur lors de la suspension : ${err.message}`);
       }
     }
   );
 
-  // Mutation for deleting driver (if endpoint exists)
+  // Mutation pour supprimer un chauffeur (si l'API le permet)
   const deleteMutation = useMutation(
-    (driverId) => adminAPI.deleteDriver ? adminAPI.deleteDriver(driverId) : Promise.reject(new Error('Delete not implemented')),
+    (driverId) =>
+      adminAPI.deleteDriver
+        ? adminAPI.deleteDriver(driverId)
+        : Promise.reject(new Error('La suppression n\'est pas implémentée')),
     {
       onSuccess: () => {
         queryClient.invalidateQueries('drivers');
         queryClient.invalidateQueries('dashboard');
       },
       onError: (err) => {
-        alert(`Failed to delete driver: ${err.message}`);
+        alert(`Erreur lors de la suppression : ${err.message}`);
       }
     }
   );
@@ -57,10 +63,10 @@ export default function Drivers() {
   if (isLoading) {
     return (
       <div className="min-h-screen bg-gray-100 p-8">
-        <div className="flex items-center justify-content h-[60vh]">
+        <div className="flex items-center justify-center h-[60vh]">
           <div className="text-center">
             <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
-            <p className="mt-2 text-gray-600">Loading drivers...</p>
+            <p className="mt-2 text-gray-600">Chargement des chauffeurs...</p>
           </div>
         </div>
       </div>
@@ -71,16 +77,17 @@ export default function Drivers() {
     return (
       <div className="min-h-screen bg-gray-100 p-8">
         <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded relative" role="alert">
-          <strong className="font-bold">Error!</strong>
+          <strong className="font-bold">Erreur !</strong>
           <span className="block sm:inline">{error.message}</span>
         </div>
       </div>
     );
   }
 
-  // Filter drivers
+  // Filtrage côté client
   const filteredDrivers = drivers.filter((driver) => {
-    const matchesSearch = driver.name?.toLowerCase().includes(search.toLowerCase()) ||
+    const matchesSearch =
+      driver.name?.toLowerCase().includes(search.toLowerCase()) ||
       driver.email?.toLowerCase().includes(search.toLowerCase());
     const matchesStatus = statusFilter === 'all' || driver.status === statusFilter;
     return matchesSearch && matchesStatus;
@@ -91,14 +98,14 @@ export default function Drivers() {
   };
 
   const handleSuspend = (driverId) => {
-    const reason = window.prompt('Please enter reason for suspension:');
+    const reason = window.prompt('Veuillez saisir la raison de la suspension :');
     if (reason) {
       suspendMutation.mutate({ driverId, reason });
     }
   };
 
   const handleDelete = (driverId) => {
-    if (window.confirm('Are you sure you want to delete this driver? This action cannot be undone.')) {
+    if (window.confirm('Êtes-vous sûr de vouloir supprimer ce chauffeur ? Cette action est irréversible.')) {
       deleteMutation.mutate(driverId);
     }
   };
@@ -106,13 +113,13 @@ export default function Drivers() {
   return (
     <div className="min-h-screen bg-gray-100 p-8">
       <div className="max-w-6xl mx-auto">
-        <h1 className="text-3xl font-bold mb-6">Driver Management</h1>
-        
-        {/* Search and filter controls */}
+        <h1 className="text-3xl font-bold mb-6">Gestion des chauffeurs</h1>
+
+        {/* Filtres et recherche */}
         <div className="mb-6 flex flex-wrap items-center gap-4">
           <input
             type="text"
-            placeholder="Search drivers by name or email..."
+            placeholder="Rechercher par nom ou email..."
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             className="flex-1 min-w-[200px] px-4 py-2 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-500"
@@ -122,12 +129,12 @@ export default function Drivers() {
             onChange={(e) => setStatusFilter(e.target.value)}
             className="px-4 py-2 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-500"
           >
-            <option value="all">All Status</option>
-            <option value="active">Active</option>
-            <option value="inactive">Inactive</option>
-            <option value="pending">Pending</option>
-            <option value="suspended">Suspended</option>
-            <option value="rejected">Rejected</option>
+            <option value="all">Tous les statuts</option>
+            <option value="active">Actif</option>
+            <option value="inactive">Inactif</option>
+            <option value="pending">En attente</option>
+            <option value="suspended">Suspendu</option>
+            <option value="rejected">Rejeté</option>
           </select>
           <button
             onClick={() => {
@@ -136,7 +143,7 @@ export default function Drivers() {
             }}
             className="px-4 py-2 bg-gray-200 rounded-lg hover:bg-gray-300"
           >
-            Reset
+            Réinitialiser
           </button>
         </div>
 
@@ -144,10 +151,10 @@ export default function Drivers() {
           <table className="w-full">
             <thead className="bg-gray-50 border-b">
               <tr>
-                <th className="px-6 py-3 text-left text-sm font-semibold">Name</th>
+                <th className="px-6 py-3 text-left text-sm font-semibold">Nom</th>
                 <th className="px-6 py-3 text-left text-sm font-semibold">Email</th>
-                <th className="px-6 py-3 text-left text-sm font-semibold">Status</th>
-                <th className="px-6 py-3 text-left text-sm font-semibold">Rating</th>
+                <th className="px-6 py-3 text-left text-sm font-semibold">Statut</th>
+                <th className="px-6 py-3 text-left text-sm font-semibold">Note</th>
                 <th className="px-6 py-3 text-left text-sm font-semibold">Documents</th>
                 <th className="px-6 py-3 text-left text-sm font-semibold">Actions</th>
               </tr>
@@ -155,8 +162,8 @@ export default function Drivers() {
             <tbody>
               {filteredDrivers.length === 0 ? (
                 <tr>
-                  <td colspan="6" className="px-6 py-4 text-center text-gray-500">
-                    No drivers found
+                  <td colSpan="6" className="px-6 py-4 text-center text-gray-500">
+                    Aucun chauffeur trouvé
                   </td>
                 </tr>
               ) : (
@@ -165,57 +172,62 @@ export default function Drivers() {
                     <td className="px-6 py-4">{driver.name || 'N/A'}</td>
                     <td className="px-6 py-4">{driver.email || 'N/A'}</td>
                     <td className="px-6 py-4">
-                      <span className={`px-3 py-1 rounded-full text-sm ${
-                        driver.status === 'active' ? 'bg-green-100 text-green-700' :
-                        driver.status === 'inactive' ? 'bg-yellow-100 text-yellow-700' :
-                        driver.status === 'suspended' ? 'bg-red-100 text-red-700' :
-                        'bg-gray-100 text-gray-700'
-                      }`}>
+                      <span
+                        className={`px-3 py-1 rounded-full text-sm ${
+                          driver.status === 'active'
+                            ? 'bg-green-100 text-green-700'
+                            : driver.status === 'inactive'
+                            ? 'bg-yellow-100 text-yellow-700'
+                            : driver.status === 'suspended'
+                            ? 'bg-red-100 text-red-700'
+                            : 'bg-gray-100 text-gray-700'
+                        }`}
+                      >
                         {driver.status?.charAt(0).toUpperCase() + driver.status?.slice(1) || 'N/A'}
                       </span>
                     </td>
-                    <td className="px-6 py-4">
-                      ⭐ {(driver.rating ?? 0).toFixed(1)}
-                    </td>
+                    <td className="px-6 py-4">⭐ {(driver.rating ?? 0).toFixed(1)}</td>
                     <td className="px-6 py-4">
                       {driver.documents?.length > 0 ? (
-                        <span className="text-green-600">{driver.documents.length} uploaded</span>
+                        <span className="text-green-600">{driver.documents.length} téléchargé(s)</span>
                       ) : (
-                        <span className="text-red-600">Pending</span>
+                        <span className="text-red-600">En attente</span>
                       )}
                     </td>
                     <td className="px-6 py-4">
                       <div className="flex space-x-2">
-                      <div className="flex space-x-2">
                         <button
-                          onClick={() => handleUpdateStatus(driverId, driver.status === 'active' ? 'inactive' : 'active')}
+                          onClick={() =>
+                            handleUpdateStatus(
+                              driver.id,
+                              driver.status === 'active' ? 'inactive' : 'active'
+                            )
+                          }
                           className="bg-blue-600 text-white px-3 py-1 rounded hover:bg-opacity-90"
                         >
-                          {driver.status === 'active' ? 'Deactivate' : 'Activate'}
+                          {driver.status === 'active' ? 'Désactiver' : 'Activer'}
                         </button>
                         <button
-                          onClick={() => handleSuspend(driverId)}
+                          onClick={() => handleSuspend(driver.id)}
                           className="bg-orange-600 text-white px-3 py-1 rounded hover:bg-opacity-90"
                         >
-                          Suspend
+                          Suspendre
                         </button>
                         <button
-                          onClick={() => handleDelete(driverId)}
+                          onClick={() => handleDelete(driver.id)}
                           className="bg-red-600 text-white px-3 py-1 rounded hover:bg-opacity-90"
                         >
-                          Delete
+                          Supprimer
                         </button>
                       </div>
                     </td>
                   </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+                ))
+              )}
+            </tbody>
+          </table>
         </div>
       </div>
-    );
-  }
+    </div>
+  );
 }
-
-export default Drivers;
