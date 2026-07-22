@@ -43,16 +43,18 @@ export default defineConfig({
     alias: {
       '@': path.resolve(__dirname, './src'),
       '@shared': path.resolve(__dirname, '../../shared'),
+      // ✅ Alias explicite pour zustand
+      'zustand': path.resolve(__dirname, 'node_modules/zustand'),
     },
-    // 👇 AJOUT : indique à Vite où chercher les modules
+    // ✅ Liste des dossiers où chercher les modules
     modules: [
-      path.resolve(__dirname, 'node_modules'),          // node_modules de l'app
-      path.resolve(__dirname, '../../node_modules'),    // node_modules à la racine du projet
-      'node_modules',                                   // fallback
+      path.resolve(__dirname, 'node_modules'),
+      path.resolve(__dirname, '../../node_modules'),
+      'node_modules',
     ],
   },
   optimizeDeps: {
-    include: ['react', 'react-dom', 'react-router-dom'],
+    include: ['react', 'react-dom', 'react-router-dom', 'zustand'],
   },
   define: {
     __APP_VERSION__: JSON.stringify(process.env.npm_package_version),
