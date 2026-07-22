@@ -40,11 +40,17 @@ export default defineConfig({
     assetsInlineLimit: 4096,
   },
   resolve: {
-  alias: {
-    '@': path.resolve(__dirname, './src'),
-    '@shared': path.resolve(__dirname, '../../shared'),
+    alias: {
+      '@': path.resolve(__dirname, './src'),
+      '@shared': path.resolve(__dirname, '../../shared'),
+    },
+    // 👇 AJOUT : indique à Vite où chercher les modules
+    modules: [
+      path.resolve(__dirname, 'node_modules'),          // node_modules de l'app
+      path.resolve(__dirname, '../../node_modules'),    // node_modules à la racine du projet
+      'node_modules',                                   // fallback
+    ],
   },
-},
   optimizeDeps: {
     include: ['react', 'react-dom', 'react-router-dom'],
   },

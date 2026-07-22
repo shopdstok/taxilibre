@@ -6,4 +6,4 @@ export {
   rideAPI,
   paymentAPI,
   adminAPI,
-} from '../../../shared/utils/apiClient.js';
+} from '@shared/utils/apiClient.js';

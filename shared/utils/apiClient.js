@@ -1,3 +1,6 @@
+// shared/utils/apiClient.js
+import axios from 'axios';
+
 // Factory to create API service objects given an axios instance
 export default function createApiServices(api) {
   return {
@@ -86,3 +89,30 @@ export default function createApiServices(api) {
     }
   };
 }
+
+// --- AJOUT POUR RÉSOUDRE LES IMPORTS ---
+
+// Création d'une instance Axios par défaut (à adapter selon ton besoin)
+// Si tu as déjà une instance ailleurs, tu peux la passer à createApiServices.
+// Ici on crée une instance basique pour que le build fonctionne.
+const defaultApi = axios.create({
+  baseURL: '/api', // ou l'URL réelle, tu peux utiliser une variable d'environnement
+  headers: { 'Content-Type': 'application/json' },
+});
+
+// Création des services avec cette instance
+const defaultServices = createApiServices(defaultApi);
+
+// Export nommé de chaque service pour faciliter l'import
+export const authAPI = defaultServices.authAPI;
+export const userAPI = defaultServices.userAPI;
+export const rideAPI = defaultServices.rideAPI;
+export const paymentAPI = defaultServices.paymentAPI;
+export const adminAPI = defaultServices.adminAPI;
+export const reviewAPI = defaultServices.reviewAPI;
+export const locationAPI = defaultServices.locationAPI;
+export const notificationAPI = defaultServices.notificationAPI;
+
+// On garde aussi l'export par défaut de la fonction createApiServices
+// pour ceux qui voudraient l'utiliser directement
+// Note : l'export par défaut est déjà la fonction (voir plus haut)
