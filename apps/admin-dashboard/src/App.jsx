@@ -20,7 +20,7 @@ function App() {
   }, []);
 
   return (
-    <Router basename="/admin">   {/* ✅ ICI : changer "/" en "/admin" */}
+    <Router basename="/admin">   {/* ✅ Changé ici */}
       <Toaster position="top-center" />
       <Routes>
         <Route path="/login" element={<Login />} />

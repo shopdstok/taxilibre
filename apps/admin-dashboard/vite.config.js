@@ -18,7 +18,7 @@ export default defineConfig({
       },
     },
   ],
-  base: '/admin/',
+  base: '/',  // ✅ Changement clé : base à la racine
   server: {
     port: 3001,
     host: true,
@@ -43,7 +43,6 @@ export default defineConfig({
     alias: {
       '@': path.resolve(__dirname, './src'),
       '@shared': path.resolve(__dirname, '../../shared'),
-      // ✅ Alias explicites pour les modules qui posent problème
       'zustand': path.resolve(__dirname, 'node_modules/zustand'),
       'axios': path.resolve(__dirname, 'node_modules/axios'),
     },
@@ -59,7 +58,7 @@ export default defineConfig({
       'react-dom',
       'react-router-dom',
       'zustand',
-      'axios', // ✅ ajouté
+      'axios',
     ],
   },
   define: {
