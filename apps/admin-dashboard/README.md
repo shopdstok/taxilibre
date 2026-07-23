@@ -1,27 +1,39 @@
-# Admin Dashboard
+# TaxiLibre Admin Dashboard
 
-## 🎛️ TaxiLibre Administration Interface
+## Console d'\''administration TaxiLibre
 
-React application for administrators to manage the taxi platform.
+Application React pour la gestion de la plateforme VTC.
 
-### 🛠️ Tech Stack
-- React 18
-- Vite
+## Stack technique
+- React 18 + Vite
 - Tailwind CSS
-- React Router
-- Axios
-- Chart.js
+- React Router v6
+- TanStack Query v5
+- Zustand (state management)
+- Recharts (graphiques)
+- Axios (client HTTP)
 
-### 📦 Deployment
-Deployed on Vercel: https://taxilibre-admin-kw6zk9src-shopdstoks-projects.vercel.app
+## Fonctionnalites
+- Tableau de bord (stats, approbations chauffeurs)
+- Gestion des utilisateurs (activation/desactivation/suppression)
+- Gestion des chauffeurs (validation, suspension, filtres)
+- Suivi des courses (filtres, pagination, statuts)
+- Analyse des revenus (graphiques barres + camembert)
+- Tickets de support (statuts, resolution)
+- Parametres (tarification, options systeme)
 
-### 🔧 Environment Variables
-- `VITE_API_URL`: Backend API endpoint
+## Demarrage local
+```bash
+npm install
+npm run dev       # http://localhost:3001
+```
 
-### 🚀 Features
-- User management
-- Driver verification
-- Revenue analytics
-- Ride monitoring
-- Support tickets
-- System settings
+## Build production
+```bash
+npm run build     # sortie dans dist/
+npm run preview   # preview du build
+```
+
+## Deploiement
+- Vercel: configure via `vercel.json`
+- Docker: `docker build -t taxilibre-admin . && docker run -p 80:80 taxilibre-admin`

@@ -42,9 +42,7 @@ export default defineConfig({
   resolve: {
     alias: {
       '@': path.resolve(__dirname, './src'),
-      '@shared': path.resolve(__dirname, '../../shared'),
-      'zustand': path.resolve(__dirname, 'node_modules/zustand'),
-      'axios': path.resolve(__dirname, 'node_modules/axios'),
+      '@shared': path.resolve(__dirname, '../../shared')
     },
     modules: [
       path.resolve(__dirname, 'node_modules'),

@@ -1,55 +1,75 @@
-import React, { useState, useEffect } from 'react';
-import { userAPI } from '../services/api';
+import React, { useState } from 'react';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { adminAPI } from '../services/api.js';
+import toast from 'react-hot-toast';
 
 export default function Users() {
-  const [users, setUsers] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
+  const queryClient = useQueryClient();
+  const [search, setSearch] = useState('');
+  const [roleFilter, setRoleFilter] = useState('all');
 
-  useEffect(() => {
-    const fetchUsers = async () => {
-      try {
-        setLoading(true);
-        const response = await fetch('/api/v1/admin/users', {
-          headers: {
-            'Authorization': `Bearer ${localStorage.getItem('accessToken')}`
-          }
-        });
-        if (response.ok) {
-          const data = await response.json();
-          setUsers(data.data || []);
-        } else {
-          throw new Error('Failed to fetch users');
-        }
-      } catch (err) {
-        setError(err.message);
-      } finally {
-        setLoading(false);
-      }
-    };
+  const { data: users = [], isLoading, isError, error } = useQuery({
+    queryKey: ['admin-users'],
+    queryFn: adminAPI.getUsers,
+  });
 
-    fetchUsers();
-  }, []);
+  const toggleStatusMutation = useMutation({
+    mutationFn: ({ userId, isActive }) => adminAPI.updateUserStatus(userId, isActive),
+    onSuccess: (_, vars) => {
+      toast.success(`Utilisateur ${vars.isActive ? 'active' : 'desactive'}`);
+      queryClient.invalidateQueries({ queryKey: ['admin-users'] });
+    },
+    onError: (err) => toast.error(`Erreur: ${err.message}`),
+  });
 
-  if (loading) {
+  const deleteMutation = useMutation({
+    mutationFn: (userId) => adminAPI.deleteUser(userId),
+    onSuccess: () => {
+      toast.success('Utilisateur supprime');
+      queryClient.invalidateQueries({ queryKey: ['admin-users'] });
+    },
+    onError: (err) => toast.error(`Erreur: ${err.message}`),
+  });
+
+  const usersArray = Array.isArray(users) ? users : users?.data ?? [];
+
+  const filtered = usersArray.filter((u) => {
+    const q = search.toLowerCase();
+    const matchSearch = !q || u.name?.toLowerCase().includes(q) || u.email?.toLowerCase().includes(q);
+    const matchRole = roleFilter === 'all' || u.role === roleFilter;
+    return matchSearch && matchRole;
+  });
+
+  const handleToggleStatus = (user) => {
+    const newStatus = !(user.isActive ?? true);
+    toggleStatusMutation.mutate({ userId: user.id, isActive: newStatus });
+  };
+
+  const handleDelete = (userId) => {
+    if (window.confirm('Supprimer cet utilisateur ? Action irreversible.')) {
+      deleteMutation.mutate(userId);
+    }
+  };
+
+  if (isLoading) {
     return (
       <div className="min-h-screen bg-gray-100 p-8">
-        <div className="flex items-center justify-content h-[60vh]">
+        <div className="flex items-center justify-center h-[60vh]">
           <div className="text-center">
-            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
-            <p className="mt-2 text-gray-600">Loading users...</p>
+            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto" />
+            <p className="mt-2 text-gray-600">Chargement des utilisateurs...</p>
           </div>
         </div>
       </div>
     );
   }
 
-  if (error) {
+  if (isError) {
     return (
       <div className="min-h-screen bg-gray-100 p-8">
-        <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded relative" role="alert">
-          <strong className="font-bold">Error!</strong>
-          <span className="block sm:inline">{error}</span>
+        <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded" role="alert">
+          <strong className="font-bold">Erreur !</strong>
+          <span className="block sm:inline"> {error.message}</span>
         </div>
       </div>
     );
@@ -58,71 +78,72 @@ export default function Users() {
   return (
     <div className="min-h-screen bg-gray-100 p-8">
       <div className="max-w-6xl mx-auto">
-        <h1 className="text-3xl font-bold mb-6">User Management</h1>
+        <h1 className="text-3xl font-bold mb-6">Gestion des utilisateurs</h1>
+
+        <div className="mb-6 flex flex-wrap items-center gap-4">
+          <input type="text" placeholder="Rechercher par nom ou email..." value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            className="flex-1 min-w-[200px] px-4 py-2 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-500" />
+          <select value={roleFilter} onChange={(e) => setRoleFilter(e.target.value)}
+            className="px-4 py-2 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-500">
+            <option value="all">Tous les roles</option>
+            <option value="passenger">Passager</option>
+            <option value="driver">Chauffeur</option>
+            <option value="admin">Admin</option>
+          </select>
+          <button onClick={() => { setSearch(''); setRoleFilter('all'); }}
+            className="px-4 py-2 bg-gray-200 rounded-lg hover:bg-gray-300 text-sm">
+            Reinitialiser
+          </button>
+        </div>
 
         <div className="bg-white rounded-lg shadow overflow-hidden">
           <table className="w-full">
             <thead className="bg-gray-50 border-b">
               <tr>
-                <th className="px-6 py-3 text-left text-sm font-semibold">Name</th>
+                <th className="px-6 py-3 text-left text-sm font-semibold">Nom</th>
                 <th className="px-6 py-3 text-left text-sm font-semibold">Email</th>
                 <th className="px-6 py-3 text-left text-sm font-semibold">Role</th>
-                <th className="px-6 py-3 text-left text-sm font-semibold">Status</th>
+                <th className="px-6 py-3 text-left text-sm font-semibold">Statut</th>
                 <th className="px-6 py-3 text-left text-sm font-semibold">Actions</th>
               </tr>
             </thead>
             <tbody>
-              {users.map((user) => (
-                <tr key={user.id} className="border-b hover:bg-gray-50">
-                  <td className="px-6 py-4">{user.name || 'N/A'}</td>
-                  <td className="px-6 py-4">{user.email || 'N/A'}</td>
-                  <td className="px-6 py-4">
-                    <span className={`text-sm ${user.role === 'driver' ? 'text-blue-600' : 'text-green-600'}`}>
-                      {user.role?.charAt(0).toUpperCase() + user.role?.slice(1) || 'N/A'}
-                    </span>
-                  </td>
-                  <td className="px-6 py-4">
-                    <span className={`${user.isActive ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'} px-3 py-1 rounded-full text-sm`}>
-                      {user.isActive ? 'Active' : 'Inactive'}
-                    </span>
-                  </td>
-                  <td className="px-6 py-4">
-                    <button
-                      onClick={() => viewUser(user.id)}
-                      className="text-blue-600 hover:text-blue-700 mr-3"
-                    >
-                      View
-                    </button>
-                    {!user.isActive ? (
-                      <button
-                        onClick={() => activateUser(user.id)}
-                        className="text-green-600 hover:text-green-700 mr-3"
-                      >
-                        Activate
-                      </button>
-                    ) : (
-                      <button
-                        onClick={() => deactivateUser(user.id)}
-                        className="text-red-600 hover:text-red-700 mr-3"
-                      >
-                        Deactivate
-                      </button>
-                    )}
-                    <button
-                      onClick={() => deleteUser(user.id)}
-                      className="text-red-600 hover:text-red-700"
-                    >
-                      Delete
-                    </button>
-                  </td>
-                </tr>
-              ))}
-              {users.length === 0 && (
+              {filtered.length === 0 ? (
                 <tr>
-                  <td colspan="5" className="px-6 py-4 text-center text-gray-500">
-                    No users found
-                  </td>
+                  <td colSpan={5} className="px-6 py-4 text-center text-gray-500">Aucun utilisateur trouve</td>
                 </tr>
+              ) : (
+                filtered.map((user) => (
+                  <tr key={user.id} className="border-b hover:bg-gray-50">
+                    <td className="px-6 py-4">{user.name || 'N/A'}</td>
+                    <td className="px-6 py-4">{user.email || 'N/A'}</td>
+                    <td className="px-6 py-4">
+                      <span className={`text-sm font-medium ${user.role === 'driver' ? 'text-blue-600' : user.role === 'admin' ? 'text-purple-600' : 'text-green-600'}`}>
+                        {user.role ? user.role.charAt(0).toUpperCase() + user.role.slice(1) : 'N/A'}
+                      </span>
+                    </td>
+                    <td className="px-6 py-4">
+                      <span className={`px-3 py-1 rounded-full text-sm ${(user.isActive ?? true) ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>
+                        {(user.isActive ?? true) ? 'Actif' : 'Inactif'}
+                      </span>
+                    </td>
+                    <td className="px-6 py-4">
+                      <div className="flex gap-2">
+                        <button onClick={() => handleToggleStatus(user)}
+                          disabled={toggleStatusMutation.isPending}
+                          className={`px-3 py-1 rounded text-sm text-white disabled:opacity-50 ${(user.isActive ?? true) ? 'bg-red-600 hover:bg-red-700' : 'bg-green-600 hover:bg-green-700'}`}>
+                          {(user.isActive ?? true) ? 'Desactiver' : 'Activer'}
+                        </button>
+                        <button onClick={() => handleDelete(user.id)}
+                          disabled={deleteMutation.isPending}
+                          className="bg-red-600 text-white px-3 py-1 rounded text-sm hover:bg-red-700 disabled:opacity-50">
+                          Supprimer
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                ))
               )}
             </tbody>
           </table>
@@ -131,73 +152,3 @@ export default function Users() {
     </div>
   );
 }
-
-// Helper functions (in a real app, these would call API endpoints)
-const viewUser = (id) => {
-  alert(`Viewing user ${id}`);
-  // Implement view user functionality
-};
-
-const activateUser = async (id) => {
-  try {
-    const response = await fetch(`/api/v1/admin/users/${id}/activate`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${localStorage.getItem('accessToken')}`
-      }
-    });
-    if (response.ok) {
-      alert('User activated successfully');
-      // Refresh the user list
-      window.location.reload();
-    } else {
-      throw new Error('Failed to activate user');
-    }
-  } catch (error) {
-    alert(`Error activating user: ${error.message}`);
-  }
-};
-
-const deactivateUser = async (id) => {
-  try {
-    const response = await fetch(`/api/v1/admin/users/${id}/deactivate`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${localStorage.getItem('accessToken')}`
-      }
-    });
-    if (response.ok) {
-      alert('User deactivated successfully');
-      // Refresh the user list
-      window.location.reload();
-    } else {
-      throw new Error('Failed to deactivate user');
-    }
-  } catch (error) {
-    alert(`Error deactivating user: ${error.message}`);
-  }
-};
-
-const deleteUser = async (id) => {
-  if (window.confirm('Are you sure you want to delete this user? This action cannot be undone.')) {
-    try {
-      const response = await fetch(`/api/v1/admin/users/${id}`, {
-        method: 'DELETE',
-        headers: {
-          'Authorization': `Bearer ${localStorage.getItem('accessToken')}`
-        }
-      });
-      if (response.ok) {
-        alert('User deleted successfully');
-        // Refresh the user list
-        window.location.reload();
-      } else {
-        throw new Error('Failed to delete user');
-      }
-    } catch (error) {
-      alert(`Error deleting user: ${error.message}`);
-    }
-  }
-};
