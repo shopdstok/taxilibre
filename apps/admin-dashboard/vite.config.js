@@ -18,7 +18,7 @@ export default defineConfig({
       },
     },
   ],
-  base: '/',  // ✅ Changement clé : base à la racine
+  base: '/',
   server: {
     port: 3001,
     host: true,
@@ -42,7 +42,9 @@ export default defineConfig({
   resolve: {
     alias: {
       '@': path.resolve(__dirname, './src'),
-      '@shared': path.resolve(__dirname, '../../shared')
+      '@shared': path.resolve(__dirname, '../../shared'),
+      'zustand': path.resolve(__dirname, 'node_modules/zustand'),
+      'axios': path.resolve(__dirname, 'node_modules/axios'),
     },
     modules: [
       path.resolve(__dirname, 'node_modules'),
