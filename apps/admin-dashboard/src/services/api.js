@@ -1,4 +1,3 @@
-// Re-export from shared API client
 export {
   api as default,
   authAPI,

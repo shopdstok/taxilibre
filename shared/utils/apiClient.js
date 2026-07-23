@@ -1,4 +1,3 @@
-// shared/utils/apiClient.js
 import axios from 'axios';
 
 // Factory to create API service objects given an axios instance
@@ -62,6 +61,18 @@ export default function createApiServices(api) {
       requestPayout: (data) => api.post('/api/v1/payments/payout', data),
       getPayoutHistory: (params) => api.get('/api/v1/payments/payouts', { params }),
     },
+    // ✅ AJOUT ADMIN API
+    adminAPI: {
+      getDrivers: () => api.get('/api/v1/admin/drivers'),
+      getDriverDetails: (driverId) => api.get(`/api/v1/admin/drivers/${driverId}`),
+      updateDriverStatus: (driverId, status) => api.put(`/api/v1/admin/drivers/${driverId}/status`, status),
+      suspendDriver: (driverId, reason) => api.post(`/api/v1/admin/drivers/${driverId}/suspend`, { reason }),
+      deleteDriver: (driverId) => api.delete(`/api/v1/admin/drivers/${driverId}`),
+      getRides: (params) => api.get('/api/v1/admin/rides', { params }),
+      getUsers: (params) => api.get('/api/v1/admin/users', { params }),
+      getRevenue: (params) => api.get('/api/v1/admin/revenue', { params }),
+      getSupportTickets: (params) => api.get('/api/v1/admin/support', { params }),
+    },
     reviewAPI: {
       createReview: (data) => api.post('/api/v1/reviews', data),
       getReview: (reviewId) => api.get(`/api/v1/reviews/${reviewId}`),
@@ -90,11 +101,9 @@ export default function createApiServices(api) {
   };
 }
 
-// --- AJOUT POUR RÉSOUDRE LES IMPORTS ---
+// --- CRÉATION D'UNE INSTANCE PAR DÉFAUT ---
 
 // Création d'une instance Axios par défaut (à adapter selon ton besoin)
-// Si tu as déjà une instance ailleurs, tu peux la passer à createApiServices.
-// Ici on crée une instance basique pour que le build fonctionne.
 const defaultApi = axios.create({
   baseURL: '/api', // ou l'URL réelle, tu peux utiliser une variable d'environnement
   headers: { 'Content-Type': 'application/json' },
@@ -114,5 +123,4 @@ export const locationAPI = defaultServices.locationAPI;
 export const notificationAPI = defaultServices.notificationAPI;
 
 // On garde aussi l'export par défaut de la fonction createApiServices
-// pour ceux qui voudraient l'utiliser directement
-// Note : l'export par défaut est déjà la fonction (voir plus haut)
+export { createApiServices };
