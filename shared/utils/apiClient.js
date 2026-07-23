@@ -105,7 +105,7 @@ export default function createApiServices(api) {
 
 // Création d'une instance Axios par défaut (à adapter selon ton besoin)
 const defaultApi = axios.create({
-  baseURL: '/api', // ou l'URL réelle, tu peux utiliser une variable d'environnement
+  baseURL: '', // ou l'URL réelle, tu peux utiliser une variable d'environnement
   headers: { 'Content-Type': 'application/json' },
 });
 
