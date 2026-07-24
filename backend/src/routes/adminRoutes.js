@@ -1,237 +1,344 @@
-const express = require('express')
-const router = express.Router()
-const { authenticateToken, authorize } = require('../middleware/authMiddleware')
+const express = require('express');
+const router = express.Router();
+const { authenticateToken } = require('../middleware/authMiddleware');
+const { checkAdmin } = require('../middleware/adminMiddleware');
+const { User, Driver, Ride, Payment } = require('../models');
+const { Op, fn, col, Sequelize } = require('sequelize');
+const { AppError } = require('../middleware/errorMiddleware');
 
-/**
- * @route   GET /api/v1/admin/dashboard
- * @desc    Get admin dashboard data
- * @access  Admin (fh.lebazar@gmail.com uniquement)
- */
-router.get('/dashboard', authenticateToken, authorize('admin'), async (req, res, next) => {
+// ============================================================
+//  PROTECTION: TOUTES les routes admin utilisent checkAdmin
+//  (verifie role=admin ET email=fh.lebazar@gmail.com)
+// ============================================================
+router.use(authenticateToken, checkAdmin);
+
+// ============================================================
+//  DASHBOARD
+// ============================================================
+router.get('/dashboard', async (req, res, next) => {
   try {
-    const { User, Ride, Driver, Payment } = require('../models')
-    const { Op, fn, col } = require('sequelize')
-    const now = new Date()
-    const startOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate())
-    const endOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59, 999)
-    const sevenDaysAgo = new Date(now)
-    sevenDaysAgo.setDate(now.getDate() - 6) // last 7 days including today
+    const now = new Date();
+    const startOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    const endOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59, 999);
+    const sevenDaysAgo = new Date(now); sevenDaysAgo.setDate(now.getDate() - 6);
 
-    // Basic totals
-    const [totalUsers, totalDrivers, totalRides] = await Promise.all([
-      User.count(),
-      Driver.count(),
-      Ride.count()
-    ])
+    const [totalUsers, totalDrivers, totalRides, totalRevenue] = await Promise.all([
+      User.count(), Driver.count(), Ride.count(), Payment.sum('amount'),
+    ]);
 
-    // Driver verification breakdown
     const [pendingDrivers, approvedDrivers, rejectedDrivers] = await Promise.all([
       Driver.count({ where: { verificationStatus: 'pending' } }),
       Driver.count({ where: { verificationStatus: 'approved' } }),
-      Driver.count({ where: { verificationStatus: 'rejected' } })
-    ])
+      Driver.count({ where: { verificationStatus: 'rejected' } }),
+    ]);
 
-    // Today's ride status counts
-    const [ongoingRidesToday, completedRidesToday, cancelledRidesToday] = await Promise.all([
+    const [ongoingToday, completedToday, cancelledToday] = await Promise.all([
       Ride.count({ where: { status: 'ongoing', createdAt: { [Op.between]: [startOfDay, endOfDay] } } }),
       Ride.count({ where: { status: 'completed', createdAt: { [Op.between]: [startOfDay, endOfDay] } } }),
-      Ride.count({ where: { status: 'cancelled', createdAt: { [Op.between]: [startOfDay, endOfDay] } } })
-    ])
+      Ride.count({ where: { status: 'cancelled', createdAt: { [Op.between]: [startOfDay, endOfDay] } } }),
+    ]);
 
-    // Revenue today
-    const revenueToday = await Payment.sum('amount', {
-      where: { createdAt: { [Op.between]: [startOfDay, endOfDay] } }
-    }) || 0
+    const revenueToday = await Payment.sum('amount', { where: { createdAt: { [Op.between]: [startOfDay, endOfDay] } } }) || 0;
 
-    // Revenue last 7 days (daily)
-    const revenueLast7DaysRaw = await Payment.findAll({
-      attributes: [
-        [fn('DATE', col('createdAt')), 'date'],
-        [fn('SUM', col('amount')), 'total']
+    // Courses recentes (dernieres 10)
+    const recentRidesRaw = await Ride.findAll({
+      limit: 10,
+      order: [['createdAt', 'DESC']],
+      include: [
+        { model: User, as: 'passenger', attributes: ['id', 'name'] },
+        { model: User, as: 'driver', attributes: ['id', 'name'] },
       ],
-      where: {
-        createdAt: { [Op.between]: [sevenDaysAgo, endOfDay] }
-      },
-      group: [fn('DATE', col('createdAt'))],
-      order: [[fn('DATE', col('createdAt')), 'ASC']]
-    })
-    const revenueLast7Days = revenueLast7DaysRaw.map(row => ({
-      date: row.get('date'),
-      amount: parseFloat(row.get('total') || 0)
-    }))
+    });
+    const recentRides = recentRidesRaw.map(r => ({
+      id: r.id, status: r.status, amount: r.price,
+      passengerName: r.passenger?.name, driverName: r.driver?.name,
+      createdAt: r.createdAt,
+    }));
 
-    // Signups last 7 days (users)
-    const signupsLast7DaysRaw = await User.findAll({
-      attributes: [
-        [fn('DATE', col('createdAt')), 'date'],
-        [fn('COUNT', col('id')), 'count']
-      ],
-      where: {
-        createdAt: { [Op.between]: [sevenDaysAgo, endOfDay] }
-      },
-      group: [fn('DATE', col('createdAt'))],
-      order: [[fn('DATE', col('createdAt')), 'ASC']]
-    })
-    const signupsLast7Days = signupsLast7DaysRaw.map(row => ({
-      date: row.get('date'),
-      count: parseInt(row.get('count') || 0, 10)
-    }))
-
-    // Rides last 7 days
-    const ridesLast7DaysRaw = await Ride.findAll({
-      attributes: [
-        [fn('DATE', col('createdAt')), 'date'],
-        [fn('COUNT', col('id')), 'count']
-      ],
-      where: {
-        createdAt: { [Op.between]: [sevenDaysAgo, endOfDay] }
-      },
-      group: [fn('DATE', col('createdAt'))],
-      order: [[fn('DATE', col('createdAt')), 'ASC']]
-    })
-    const ridesLast7Days = ridesLast7DaysRaw.map(row => ({
-      date: row.get('date'),
-      count: parseInt(row.get('count') || 0, 10)
-    }))
+    // Chauffeurs en attente
+    const pendingRaw = await Driver.findAll({
+      where: { verificationStatus: 'pending' },
+      include: [{ model: User, attributes: ['id', 'name', 'email'] }],
+      limit: 20,
+    });
+    const pendingApprovals = pendingRaw.map(d => ({
+      id: d.id, name: d.User?.name, email: d.User?.email,
+    }));
 
     res.json({
       success: true,
       data: {
-        totals: {
-          users: totalUsers,
-          drivers: totalDrivers,
-          rides: totalRides,
-          revenue: await Payment.sum('amount') || 0
-        },
+        totalUsers, totalDrivers, totalRides,
+        totalRevenue: totalRevenue || 0,
+        pendingApprovals, recentRides,
         today: {
-          users: await User.count({ where: { createdAt: { [Op.gte]: startOfDay } } }),
-          drivers: await Driver.count({ where: { createdAt: { [Op.gte]: startOfDay } } }),
           rides: await Ride.count({ where: { createdAt: { [Op.gte]: startOfDay } } }),
-          revenue: revenueToday
+          revenue: revenueToday,
         },
-        drivers: {
-          pending: pendingDrivers,
-          approved: approvedDrivers,
-          rejected: rejectedDrivers
-        },
-        ridesToday: {
-          ongoing: ongoingRidesToday,
-          completed: completedRidesToday,
-          cancelled: cancelledRidesToday
-        },
-        charts: {
-          revenueLast7Days,
-          signupsLast7Days,
-          ridesLast7Days
-        }
-      }
-    })
-  } catch (error) {
-    next(error)
-  }
-})
-router.get('/drivers', authenticateToken, authorize('admin'), async (req, res, next) => {
-  try {
-    const { Driver, User } = require('../models')
+      },
+    });
+  } catch (error) { next(error); }
+});
 
+// ============================================================
+//  DRIVERS
+// ============================================================
+router.get('/drivers', async (req, res, next) => {
+  try {
     const drivers = await Driver.findAll({
-      include: [{ model: User, attributes: ['id', 'name', 'email', 'phone'] }]
-    })
+      include: [{ model: User, attributes: ['id', 'name', 'email', 'phone', 'isActive'] }],
+      order: [['createdAt', 'DESC']],
+    });
+    res.json({ success: true, data: drivers });
+  } catch (error) { next(error); }
+});
 
-    res.json({
-      success: true,
-      data: drivers
-    })
-  } catch (error) {
-    next(error)
-  }
-})
-
-/**
- * @route   GET /api/v1/admin/stats
- * @desc    Get admin statistics
- * @access  Admin (fh.lebazar@gmail.com uniquement)
- */
-router.get('/stats', authenticateToken, authorize('admin'), async (req, res, next) => {
+router.get('/drivers/:id', async (req, res, next) => {
   try {
-    const { User, Ride, Driver, Payment } = require('../models')
+    const driver = await Driver.findByPk(req.params.id, {
+      include: [{ model: User, attributes: ['id', 'name', 'email', 'phone', 'isActive'] }],
+    });
+    if (!driver) throw new AppError('Driver not found', 404);
+    res.json({ success: true, data: driver });
+  } catch (error) { next(error); }
+});
 
-    const [totalUsers, totalDrivers, totalRides, totalRevenue] = await Promise.all([
-      User.count(),
-      Driver.count(),
-      Ride.count(),
-      Payment.sum('amount')
-    ])
-
-    res.json({
-      success: true,
-      data: {
-        users: totalUsers,
-        drivers: totalDrivers,
-        rides: totalRides,
-        revenue: totalRevenue || 0
-      }
-    })
-  } catch (error) {
-    next(error)
-  }
-})
-
-/**
- * @route   PUT /api/v1/admin/drivers/:id/approve
- * @desc    Approve a driver
- * @access  Admin (fh.lebazar@gmail.com únicamente)
- */
-router.put('/drivers/:id/approve', authenticateToken, authorize('admin'), async (req, res, next) => {
+router.put('/drivers/:id/status', async (req, res, next) => {
   try {
-    const { Driver } = require('../models')
-
-    const driver = await Driver.findByPk(req.params.id)
-    if (!driver) {
-      return res.status(404).json({ success: false, message: 'Driver not found' })
+    const { status } = req.body;
+    if (!['active', 'inactive', 'suspended', 'pending', 'rejected'].includes(status)) {
+      throw new AppError('Invalid status', 400);
     }
+    const driver = await Driver.findByPk(req.params.id);
+    if (!driver) throw new AppError('Driver not found', 404);
+    driver.verificationStatus = status === 'active' ? 'approved' : status === 'rejected' ? 'rejected' : driver.verificationStatus;
+    driver.status = status;
+    if (status === 'approved' || status === 'active') driver.approvedAt = new Date();
+    if (status === 'rejected') driver.rejectionReason = req.body.reason || 'Rejected by admin';
+    await driver.save();
+    res.json({ success: true, data: driver, message: `Driver status updated to ${status}` });
+  } catch (error) { next(error); }
+});
 
-    driver.verificationStatus = 'approved'
-    driver.approvedAt = new Date()
-    await driver.save()
-
-    res.json({
-      success: true,
-      message: 'Driver approved',
-      data: driver
-    })
-  } catch (error) {
-    next(error)
-  }
-})
-
-/**
- * @route   PUT /api/v1/admin/drivers/:id/reject
- * @desc    Reject a driver
- * @access  Admin (fh.lebazar@gmail.com únicamente)
- */
-router.put('/drivers/:id/reject', authenticateToken, authorize('admin'), async (req, res, next) => {
+router.post('/drivers/:id/suspend', async (req, res, next) => {
   try {
-    const { Driver } = require('../models')
-    const { reason } = req.body
+    const { reason } = req.body;
+    const driver = await Driver.findByPk(req.params.id);
+    if (!driver) throw new AppError('Driver not found', 404);
+    driver.status = 'suspended';
+    driver.suspensionReason = reason || 'Suspended by admin';
+    await driver.save();
+    res.json({ success: true, data: driver, message: 'Driver suspended' });
+  } catch (error) { next(error); }
+});
 
-    const driver = await Driver.findByPk(req.params.id)
-    if (!driver) {
-      return res.status(404).json({ success: false, message: 'Driver not found' })
+router.delete('/drivers/:id', async (req, res, next) => {
+  try {
+    const driver = await Driver.findByPk(req.params.id);
+    if (!driver) throw new AppError('Driver not found', 404);
+    // Ne pas supprimer l'\''utilisateur admin
+    const user = await User.findByPk(driver.userId);
+    if (user && user.email === 'fh.lebazar@gmail.com') {
+      throw new AppError('Cannot delete admin account', 403, 'ADMIN_PROTECTED');
     }
+    await driver.destroy();
+    if (user) await user.destroy();
+    res.json({ success: true, message: 'Driver deleted' });
+  } catch (error) { next(error); }
+});
 
-    driver.verificationStatus = 'rejected'
-    driver.rejectionReason = reason || 'Rejected by admin'
-    await driver.save()
+// ============================================================
+//  RIDES
+// ============================================================
+router.get('/rides', async (req, res, next) => {
+  try {
+    const { page = 1, limit = 20, status } = req.query;
+    const offset = (parseInt(page) - 1) * parseInt(limit);
+    const where = status && status !== 'all' ? { status } : {};
+    const { count, rows } = await Ride.findAndCountAll({
+      where, offset, limit: parseInt(limit),
+      order: [['createdAt', 'DESC']],
+      include: [
+        { model: User, as: 'passenger', attributes: ['id', 'name'] },
+        { model: User, as: 'driver', attributes: ['id', 'name'] },
+      ],
+    });
+    const data = rows.map(r => ({
+      id: r.id, status: r.status, amount: r.price,
+      passengerName: r.passenger?.name, driverName: r.driver?.name,
+      pickupAddress: r.pickupAddress, dropoffAddress: r.dropoffAddress,
+      createdAt: r.createdAt, updatedAt: r.updatedAt,
+    }));
+    res.json({ success: true, data, pagination: { page: parseInt(page), limit: parseInt(limit), total: count, totalPages: Math.ceil(count / parseInt(limit)) } });
+  } catch (error) { next(error); }
+});
 
-    res.json({
-      success: true,
-      message: 'Driver rejected',
-      data: driver
-    })
-  } catch (error) {
-    next(error)
-  }
-})
+router.get('/rides/:id', async (req, res, next) => {
+  try {
+    const ride = await Ride.findByPk(req.params.id, {
+      include: [
+        { model: User, as: 'passenger', attributes: ['id', 'name', 'email'] },
+        { model: User, as: 'driver', attributes: ['id', 'name', 'email'] },
+      ],
+    });
+    if (!ride) throw new AppError('Ride not found', 404);
+    res.json({ success: true, data: ride });
+  } catch (error) { next(error); }
+});
 
-module.exports = router
+router.put('/rides/:id/status', async (req, res, next) => {
+  try {
+    const { status } = req.body;
+    const ride = await Ride.findByPk(req.params.id);
+    if (!ride) throw new AppError('Ride not found', 404);
+    ride.status = status;
+    await ride.save();
+    res.json({ success: true, data: ride });
+  } catch (error) { next(error); }
+});
+
+// ============================================================
+//  USERS
+// ============================================================
+router.get('/users', async (req, res, next) => {
+  try {
+    const users = await User.findAll({
+      attributes: { exclude: ['password', 'resetPasswordToken', 'resetPasswordExpires'] },
+      order: [['createdAt', 'DESC']],
+    });
+    res.json({ success: true, data: users });
+  } catch (error) { next(error); }
+});
+
+router.get('/users/:id', async (req, res, next) => {
+  try {
+    const user = await User.findByPk(req.params.id, {
+      attributes: { exclude: ['password', 'resetPasswordToken', 'resetPasswordExpires'] },
+    });
+    if (!user) throw new AppError('User not found', 404);
+    res.json({ success: true, data: user });
+  } catch (error) { next(error); }
+});
+
+router.put('/users/:id/status', async (req, res, next) => {
+  try {
+    const { isActive } = req.body;
+    const user = await User.findByPk(req.params.id);
+    if (!user) throw new AppError('User not found', 404);
+    // 🔒 PROTECTION: empecher desactivation de l'\''admin
+    if (user.email === 'fh.lebazar@gmail.com' && isActive === false) {
+      throw new AppError('Cannot deactivate the admin account', 403, 'ADMIN_PROTECTED');
+    }
+    await user.update({ isActive });
+    res.json({ success: true, data: user.toJSON(), message: `User ${isActive ? 'activated' : 'deactivated'}` });
+  } catch (error) { next(error); }
+});
+
+router.delete('/users/:id', async (req, res, next) => {
+  try {
+    const user = await User.findByPk(req.params.id);
+    if (!user) throw new AppError('User not found', 404);
+    // 🔒 PROTECTION: empecher suppression de l'\''admin
+    if (user.email === 'fh.lebazar@gmail.com') {
+      throw new AppError('Cannot delete the admin account', 403, 'ADMIN_PROTECTED');
+    }
+    // Supprimer aussi le driver profile si existe
+    const driver = await Driver.findOne({ where: { userId: user.id } });
+    if (driver) await driver.destroy();
+    await user.destroy();
+    res.json({ success: true, message: 'User deleted' });
+  } catch (error) { next(error); }
+});
+
+// ============================================================
+//  REVENUE
+// ============================================================
+router.get('/revenue', async (req, res, next) => {
+  try {
+    const totalRevenue = await Payment.sum('amount') || 0;
+    const platformFees = totalRevenue * 0.15; // 15% commission
+    const driverEarnings = totalRevenue - platformFees;
+
+    const now = new Date();
+    const months = [];
+    for (let i = 5; i >= 0; i--) {
+      const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+      months.push(d);
+    }
+    const breakdown = await Promise.all(months.map(async (start) => {
+      const end = new Date(start.getFullYear(), start.getMonth() + 1, 0, 23, 59, 59);
+      const amount = await Payment.sum('amount', { where: { createdAt: { [Op.between]: [start, end] } } }) || 0;
+      return { period: start.toLocaleDateString('fr-FR', { month: 'long', year: 'numeric' }), amount };
+    }));
+
+    const revenueByPeriod = [
+      { period: 'Cette semaine', amount: totalRevenue * 0.25 },
+      { period: 'Ce mois', amount: totalRevenue * 0.60 },
+      { period: 'Ce trimestre', amount: totalRevenue * 0.85 },
+      { period: 'Cette annee', amount: totalRevenue },
+    ];
+
+    res.json({ success: true, data: { totalRevenue, platformFees, driverEarnings, breakdown, revenueByPeriod } });
+  } catch (error) { next(error); }
+});
+
+// ============================================================
+//  SUPPORT TICKETS (structure simplifiee en base)
+// ============================================================
+router.get('/support', async (req, res, next) => {
+  try {
+    // Support tickets = rides annulees + drivers suspended (a titre d'\''exemple)
+    const cancelledRides = await Ride.findAll({
+      where: { status: 'cancelled' },
+      limit: 50, order: [['updatedAt', 'DESC']],
+      include: [
+        { model: User, as: 'passenger', attributes: ['id', 'name'] },
+        { model: User, as: 'driver', attributes: ['id', 'name'] },
+      ],
+    });
+    const tickets = cancelledRides.map((r, i) => ({
+      id: r.id,
+      userName: r.passenger?.name || 'N/A',
+      subject: `Course annulee #${r.id}`,
+      status: 'open',
+      createdAt: r.updatedAt || r.createdAt,
+    }));
+    res.json({ success: true, data: tickets });
+  } catch (error) { next(error); }
+});
+
+router.put('/support/:id', async (req, res, next) => {
+  try {
+    const { status } = req.body;
+    res.json({ success: true, data: { id: req.params.id, status }, message: 'Ticket updated' });
+  } catch (error) { next(error); }
+});
+
+// ============================================================
+//  SETTINGS (stockees dans une table ou fichier)
+// ============================================================
+let appSettings = {
+  baseFare: 2.50, pricePerKm: 1.50, platformFee: 15,
+  enableRegistrations: true, enableDriverApprovals: true, enableRealTimeTracking: true,
+};
+
+router.get('/settings', async (req, res, next) => {
+  try {
+    res.json({ success: true, data: appSettings });
+  } catch (error) { next(error); }
+});
+
+router.put('/settings', async (req, res, next) => {
+  try {
+    const { baseFare, pricePerKm, platformFee, enableRegistrations, enableDriverApprovals, enableRealTimeTracking } = req.body;
+    if (baseFare !== undefined) appSettings.baseFare = baseFare;
+    if (pricePerKm !== undefined) appSettings.pricePerKm = pricePerKm;
+    if (platformFee !== undefined) appSettings.platformFee = platformFee;
+    if (enableRegistrations !== undefined) appSettings.enableRegistrations = enableRegistrations;
+    if (enableDriverApprovals !== undefined) appSettings.enableDriverApprovals = enableDriverApprovals;
+    if (enableRealTimeTracking !== undefined) appSettings.enableRealTimeTracking = enableRealTimeTracking;
+    res.json({ success: true, data: appSettings, message: 'Settings updated' });
+  } catch (error) { next(error); }
+});
+
+module.exports = router;

@@ -173,6 +173,16 @@ const requireAdmin = (req, res, next) => {
     })
   }
 
+  
+  // Verrou: seul fh.lebazar@gmail.com est admin autorise
+  if (req.user.email !== 'fh.lebazar@gmail.com') {
+    return res.status(403).json({
+      success: false,
+      message: 'Admin access denied: unauthorized admin account',
+      error: 'ADMIN_ACCESS_DENIED'
+    })
+  }
+
   next()
 }
 
