@@ -2,7 +2,7 @@ const http = require('http');
 const app = require('./app');
 const { initSocket } = require('./socket');
 const { logger } = require('./services/loggingService');
-const seedAdmin = require('../../scripts/seedAdmin');
+const seedAdmin = require('../scripts/seedAdmin');
 
 // Get port from environment or default to 3003
 const PORT = process.env.PORT || 3003;
