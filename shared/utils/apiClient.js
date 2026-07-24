@@ -112,11 +112,53 @@ export default function createApiServices(api) {
 
 // --- CRÉATION D'UNE INSTANCE PAR DÉFAUT ---
 
-// Création d'une instance Axios par défaut (à adapter selon ton besoin)
+// URL de l'API backend (variable d'environnement Vite ou fallback)
+const API_BASE_URL = typeof import.meta !== 'undefined' && import.meta.env?.VITE_API_URL
+  ? import.meta.env.VITE_API_URL
+  : (typeof process !== 'undefined' && process.env?.VITE_API_URL)
+    ? process.env.VITE_API_URL
+    : '';
+
+// Création d'une instance Axios avec intercepteur auth
 const defaultApi = axios.create({
-  baseURL: '', // ou l'URL réelle, tu peux utiliser une variable d'environnement
+  baseURL: API_BASE_URL,
   headers: { 'Content-Type': 'application/json' },
 });
+
+// Intercepteur: attacher le token JWT automatiquement
+defaultApi.interceptors.request.use((config) => {
+  const token = localStorage.getItem('accessToken');
+  if (token) {
+    config.headers.Authorization = `Bearer ${token}`;
+  }
+  return config;
+}, (error) => Promise.reject(error));
+
+// Intercepteur: refresh automatique si 401
+defaultApi.interceptors.response.use(
+  (response) => response,
+  async (error) => {
+    const originalRequest = error.config;
+    if (error.response?.status === 401 && !originalRequest._retry) {
+      originalRequest._retry = true;
+      try {
+        const refreshToken = localStorage.getItem('refreshToken');
+        if (refreshToken) {
+          const res = await axios.post(`${API_BASE_URL}/api/v1/auth/refresh`, { refreshToken });
+          const { accessToken } = res.data.data.tokens;
+          localStorage.setItem('accessToken', accessToken);
+          originalRequest.headers.Authorization = `Bearer ${accessToken}`;
+          return defaultApi(originalRequest);
+        }
+      } catch {
+        localStorage.removeItem('accessToken');
+        localStorage.removeItem('refreshToken');
+        window.location.href = '/login';
+      }
+    }
+    return Promise.reject(error);
+  }
+);
 
 // Création des services avec cette instance
 const defaultServices = createApiServices(defaultApi);
