@@ -25,6 +25,8 @@ function initSocket (server) {
     }
   })
   subClient = pubClient.duplicate()
+  pubClient.on('error', (err) => logger.error('Redis pub client error:', err));
+  subClient.on('error', (err) => logger.error('Redis sub client error:', err));
 
   pubClient.connect().catch((err) => logger.error('Redis pub client connection error:', err))
   subClient.connect().catch((err) => logger.error('Redis sub client connection error:', err))
