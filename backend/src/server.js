@@ -23,7 +23,7 @@ async function startServer() {
     logger.info('Database connection established');
 
     // Synchroniser les modeles
-    await sequelize.sync({ alter: true });
+    await sequelize.sync();
     logger.info('Models synchronized');
 
     // Seed du compte admin unique
@@ -36,7 +36,7 @@ async function startServer() {
       logger.info(`Socket.IO attached to server`);
     });
   } catch (error) {
-    logger.error('Failed to start server:', error.message);
+    logger.error('Failed to start server:', error); console.error(error.stack || error);
     // Demarrer quand meme sans seed (la base n est peut-etre pas encore prete)
     server.listen(PORT, HOST, () => {
       logger.warn(`Server running on http://${HOST}:${PORT} (sans seed admin)`);
@@ -74,3 +74,5 @@ process.on('SIGINT', async () => {
 startServer();
 
 module.exports = server;
+
+

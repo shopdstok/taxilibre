@@ -1,8 +1,10 @@
 version: '3.9'
 
 services:
+
   # Backend API
   backend:
+    container_name: taxilibre-backend
     build:
       context: ./backend
       dockerfile: Dockerfile
@@ -10,8 +12,8 @@ services:
     env_file:
       - .env
     environment:
-      - NODE_ENV=production
-      - PORT=3003
+      NODE_ENV: production
+      PORT: 3003
     depends_on:
       - postgres
       - redis
@@ -21,9 +23,11 @@ services:
       - ./backend:/app
       - /app/node_modules
 
+
   # PostgreSQL Database
   postgres:
-    image: postgres:16-alpine
+    container_name: taxilibre-postgres
+    image: postgres:15-alpine
     restart: unless-stopped
     environment:
       POSTGRES_USER: ${DB_USER:-taxilibre}
@@ -36,8 +40,10 @@ services:
     ports:
       - "5432:5432"
 
-  # Redis
+
+  # Redis Cache / Real-time
   redis:
+    container_name: taxilibre-redis
     image: redis:7-alpine
     restart: unless-stopped
     command: redis-server --appendonly yes
@@ -48,47 +54,55 @@ services:
     ports:
       - "6379:6379"
 
-  # Passenger Web App
+
+  # Passenger Web
   passenger-web:
+    container_name: taxilibre-passenger-web
     build:
       context: ./apps/passenger-web
       dockerfile: Dockerfile
     restart: unless-stopped
     environment:
-      - VITE_API_URL=http://localhost/api
+      VITE_API_URL: http://localhost/api
     depends_on:
       - backend
     networks:
       - taxilibre-network
 
-  # Driver Web App
+
+  # Driver Web
   driver-web:
+    container_name: taxilibre-driver-web
     build:
       context: ./apps/driver-web
       dockerfile: Dockerfile
     restart: unless-stopped
     environment:
-      - VITE_API_URL=http://localhost/api
+      VITE_API_URL: http://localhost/api
     depends_on:
       - backend
     networks:
       - taxilibre-network
 
+
   # Admin Dashboard
   admin-dashboard:
+    container_name: taxilibre-admin-dashboard
     build:
       context: ./apps/admin-dashboard
       dockerfile: Dockerfile
     restart: unless-stopped
     environment:
-      - VITE_API_URL=http://localhost/api
+      VITE_API_URL: http://localhost/api
     depends_on:
       - backend
     networks:
       - taxilibre-network
 
+
   # Nginx Gateway
   gateway:
+    container_name: taxilibre-gateway
     image: nginx:1.27-alpine
     restart: unless-stopped
     depends_on:
@@ -103,9 +117,11 @@ services:
     networks:
       - taxilibre-network
 
+
 networks:
   taxilibre-network:
     driver: bridge
+
 
 volumes:
   postgres_data:

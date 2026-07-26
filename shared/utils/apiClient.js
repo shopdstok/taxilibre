@@ -162,7 +162,7 @@ defaultApi.interceptors.response.use(
 
 // Création des services avec cette instance
 const defaultServices = createApiServices(defaultApi);
-
+export const api = defaultApi;
 // Export nommé de chaque service pour faciliter l'import
 export const authAPI = defaultServices.authAPI;
 export const userAPI = defaultServices.userAPI;
