@@ -9,7 +9,7 @@ const bcrypt = require('bcryptjs')
 const initializeDatabase = async () => {
   try {
     // Sync all models
-    await sequelize.sync({ force: false, alter: true })
+    await sequelize.sync();
 
     // Seed admin user if not exists
     const adminExists = await User.findOne({
