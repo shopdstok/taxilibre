@@ -24,6 +24,7 @@ const createMockClient = () => {
 
   const store = new Map()
   const geoStore = new Map()
+  let listeners = {}
 
   return {
 
@@ -90,7 +91,12 @@ const createMockClient = () => {
     disconnect: async()=>{},
 
 
-    on:()=>{},
+    on: (event, listener) => {
+      if (!listeners[event]) {
+        listeners[event] = []
+      }
+      listeners[event].push(listener)
+    },
 
 
     isOpen:false
@@ -165,8 +171,9 @@ const initRedis = async()=>{
     return client
   }
 
-}
 
+
+}
 
 
 const getClient=()=>{
