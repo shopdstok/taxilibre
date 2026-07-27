@@ -1,200 +1,103 @@
-const { createClient } = require('redis')
-const { logger } = require('../services/loggingService')
+const redis = require('redis');
+const { logger } = require('../services/loggingService');
 
-let client = null
-let isConnected = false
+/**
+ * Redis client configuration with automatic reconnection.
+ * Supports REDIS_URL (full connection string) or separate REDIS_HOST/PORT/PASSWORD.
+ */
+let redisClient = null;
 
+// Build Redis URL if not provided directly
+const getRedisUrl = () => {
+  if (process.env.REDIS_URL) {
+    return process.env.REDIS_URL;
+  }
+  const host = process.env.REDIS_HOST || 'localhost';
+  const port = process.env.REDIS_PORT || 6379;
+  const password = process.env.REDIS_PASSWORD ? `:${process.env.REDIS_PASSWORD}@` : '';
+  // If password is empty, we don't want colon before @
+  return `redis://${password}${host}:${port}`;
+};
 
-const isRedisEnabled = () => {
-  return process.env.REDIS_ENABLED !== 'false'
-}
+const REDIS_URL = getRedisUrl();
 
+if (REDIS_URL) {
+  // Create Redis client with reconnection strategy
+  redisClient = redis.createClient({
+    url: REDIS_URL,
+    socket: {
+      // Exponential backoff reconnect: start at 50ms, max 30s
+      reconnectStrategy: (retries) => {
+        const delay = Math.min(Math.pow(2, retries) * 50, 30000);
+        logger.info(`Redis reconnect attempt ${retries + 1} in ${delay}ms`);
+        return delay;
+      },
+      // Keep alive
+      keepAlive: true,
+    },
+  });
 
-const getRedisConfig = () => ({
-  socket: {
-    host: process.env.REDIS_HOST || 'localhost',
-    port: parseInt(process.env.REDIS_PORT, 10) || 6379
-  },
-  password: process.env.REDIS_PASSWORD || undefined,
-  database: parseInt(process.env.REDIS_DB, 10) || 0
-})
+  // Event listeners for monitoring
+  redisClient.on('error', (err) => {
+    logger.error('❌ Redis Client Error:', err.message);
+  });
 
+  redisClient.on('connecting', () => {
+    logger.debug('🔌 Redis Client Connecting...');
+  });
 
-const createMockClient = () => {
+  redisClient.on('connect', () => {
+    logger.info('🔌 Redis Client Connected');
+  });
 
-  const store = new Map()
-  const geoStore = new Map()
-  let listeners = {}
+  redisClient.on('ready', () => {
+    logger.info('✅ Redis Client Ready');
+  });
 
-  return {
+  redisClient.on('reconnecting', () => {
+    logger.info('🔄 Redis Client Reconnecting...');
+  });
 
-    get: async (key) => {
-      const entry = store.get(key)
+  redisClient.on('end', () => {
+    logger.warn('⚠️ Redis Client Disconnected');
+  });
 
-      if (!entry) return null
+  redisClient.on('ready', () => {
+    logger.info('✅ Redis Client Ready');
+  });
 
-      if (entry.expires && Date.now() > entry.expires) {
-        store.delete(key)
-        return null
+  // Async connection with error handling
+  const connectRedis = async () => {
+    if (!redisClient.isOpen) {
+      try {
+        await redisClient.connect();
+        logger.info('🚀 Redis connection established');
+      } catch (err) {
+        logger.error('Failed to connect to Redis:', err.message);
+        // Optionally retry after a short delay (handled by reconnectStrategy)
       }
-
-      return entry.value
-    },
-
-
-    setex: async (key, ttl, value) => {
-      store.set(key,{
-        value,
-        expires: Date.now() + ttl * 1000
-      })
-
-      return 'OK'
-    },
-
-
-    del: async (key) => {
-      store.delete(key)
-      geoStore.delete(key)
-      return 1
-    },
-
-
-    incr: async (key) => {
-
-      const value = parseInt(store.get(key)?.value || 0)
-
-      const next = value + 1
-
-      store.set(key,{
-        value:String(next),
-        expires:null
-      })
-
-      return next
-    },
-
-
-    geoAdd: async () => 1,
-
-
-    georadius: async () => [],
-
-
-    duplicate(){
-      return createMockClient()
-    },
-
-
-    connect: async()=>{},
-
-
-    disconnect: async()=>{},
-
-
-    on: (event, listener) => {
-      if (!listeners[event]) {
-        listeners[event] = []
-      }
-      listeners[event].push(listener)
-    },
-
-
-    isOpen:false
-  }
-}
-
-
-
-const initRedis = async()=>{
-
-
-  if(!isRedisEnabled()){
-
-    logger.warn(
-      'Redis disabled by REDIS_ENABLED=false — using mock client'
-    )
-
-    client = createMockClient()
-    return client
-  }
-
-
-  if(client) return client
-
-
-  const config = getRedisConfig()
-
-
-  client=createClient({
-    socket:config.socket,
-    password:config.password,
-    database:config.database
-  })
-
-
-  client.on(
-    'error',
-    err=>{
-      logger.error(
-        'Redis error:',
-        err.message
-      )
-
-      isConnected=false
     }
-  )
+  };
 
-
-  client.on(
-    'connect',
-    ()=>{
-      logger.info('Redis connected')
-      isConnected=true
-    }
-  )
-
-
-  try{
-
-    await client.connect()
-
-    return client
-
-  }catch(error){
-
-    logger.warn(
-      'Redis unavailable — fallback mock enabled'
-    )
-
-    client=createMockClient()
-
-    return client
-  }
-
-
-
+  // Initiate connection
+  connectRedis().catch((err) =>
+    logger.error('Initial Redis connection error:', err.message)
+  );
+} else {
+  logger.warn('⚠️ REDIS_URL not defined and REDIS_HOST/PORT not set. Redis disabled.');
 }
 
+/**
+ * Check if Redis client is ready and connected.
+ * @returns {boolean}
+ */
+const isRedisAvailable = () => {
+  return redisClient && redisClient.isOpen && redisClient.isReady;
+};
 
-const getClient=()=>{
-
-  if(client)
-    return client
-
-
-  logger.warn(
-    'Redis not initialized — using mock'
-  )
-
-  return createMockClient()
-
-}
-
-
-
-module.exports={
-  initRedis,
-  getClient,
-  client:null,
-  Redis:null
-}
+module.exports = {
+  client: redisClient,
+  isRedisAvailable,
+  // Backward compatibility: expose as 'redis' as well
+  redis: redisClient,
+};

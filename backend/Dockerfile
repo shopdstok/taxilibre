@@ -1,4 +1,4 @@
-FROM node:18-alpine
+FROM node:20-alpine
 
 WORKDIR /app
 
@@ -7,7 +7,7 @@ RUN apk add --no-cache curl
 
 # Install dependencies
 COPY package*.json ./
-RUN npm install --production
+RUN npm ci --production
 
 # Create uploads directory
 RUN mkdir -p uploads/drivers uploads/avatars

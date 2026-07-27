@@ -46,9 +46,10 @@ services:
     container_name: taxilibre-redis
     image: redis:7-alpine
     restart: unless-stopped
-    command: redis-server --appendonly yes
+    command: redis-server /usr/local/etc/redis/redis.conf
     volumes:
       - redis_data:/data
+      - ./docker/redis/redis.conf:/usr/local/etc/redis/redis.conf:ro
     networks:
       - taxilibre-network
     ports:
