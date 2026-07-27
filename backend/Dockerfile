@@ -7,7 +7,7 @@ RUN apk add --no-cache curl
 
 # Install dependencies
 COPY package*.json ./
-RUN npm ci --production
+RUN npm ci
 
 # Create uploads directory
 RUN mkdir -p uploads/drivers uploads/avatars
