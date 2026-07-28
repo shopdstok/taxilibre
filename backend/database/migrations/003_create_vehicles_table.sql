@@ -46,4 +46,4 @@ $$ LANGUAGE plpgsql;
 CREATE TRIGGER update_vehicles_updated_at
     BEFORE UPDATE ON vehicles
     FOR EACH ROW
-    EXECUTE FUNCTION update_updated_at_column;
+    EXECUTE FUNCTION update_updated_at_column();

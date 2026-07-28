@@ -59,4 +59,4 @@ $$ LANGUAGE plpgsql;
 CREATE TRIGGER update_payments_updated_at
     BEFORE UPDATE ON payments
     FOR EACH ROW
-    EXECUTE FUNCTION update_updated_at_column;
+    EXECUTE FUNCTION update_updated_at_column();
