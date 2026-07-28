@@ -5,7 +5,7 @@
  * Ce script est appele au demarrage du serveur.
  *
  * SECURITE:
- * - Mot de passe hache avec bcryptjs (12 rounds)
+ * - Mot de passe hache avec bcryptjs (12 rounds) via le hook du modele
  * - Un seul admin autorise: fh.lebazar@gmail.com
  * - Le compte ne peut pas etre supprime ni desactive via l'\''API
  * - Seul le proprietaire peut modifier le mot de passe dans ce fichier
@@ -47,13 +47,11 @@ async function seedAdmin() {
       return existingAdmin;
     }
 
-    // Creer l'\''admin
-    const saltRounds = 12;
-    const hashedPassword = await bcrypt.hash(ADMIN_PASSWORD, saltRounds);
-
+    // Creer l'\''admin - NOTE: Ne pas hasher manuellement le mot de passe,
+    // laissez le hook beforeCreate du modele User le faire (comme lors de l'inscription reguliere)
     const admin = await User.create({
       email: ADMIN_EMAIL,
-      password: hashedPassword,
+      password: ADMIN_PASSWORD, // Mot de passe en clair - sera hashe par le hook
       name: ADMIN_NAME,
       role: ADMIN_ROLE,
       isActive: true,
