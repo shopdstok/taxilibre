@@ -45,8 +45,19 @@ CREATE INDEX IF NOT EXISTS idx_payments_payment_method ON payments(payment_metho
 CREATE INDEX IF NOT EXISTS idx_payments_stripe_payment_intent_id ON payments(stripe_payment_intent_id);
 CREATE INDEX IF NOT EXISTS idx_payments_created_at ON payments(created_at);
 
--- Trigger for updated_at
-CREATE TRIGGER update_payments_updated_at 
-    BEFORE UPDATE ON payments 
-    FOR EACH ROW 
-    EXECUTE FUNCTION update_updated_at_column();
+-- Trigger for updated_at (idempotent)
+DROP TRIGGER IF EXISTS update_payments_updated_at ON payments;
+DROP FUNCTION IF EXISTS update_updated_at_column;
+CREATE OR REPLACE FUNCTION update_updated_at_column()
+RETURNS TRIGGER AS $$
+BEGIN
+    NEW.updated_at = CURRENT_TIMESTAMP;
+    RETURN NEW;
+END;
+$$ language 'plpgsql';
+
+CREATE TRIGGER update_payments_updated_at
+    BEFORE UPDATE ON payments
+    FOR EACH ROW
+    EXECUTE FUNCTION update_updated_at_column;
+

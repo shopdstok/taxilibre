@@ -33,8 +33,19 @@ CREATE INDEX IF NOT EXISTS idx_drivers_rating ON drivers(rating);
 CREATE INDEX IF NOT EXISTS idx_drivers_location ON drivers(current_latitude, current_longitude);
 CREATE INDEX IF NOT EXISTS idx_drivers_created_at ON drivers(created_at);
 
--- Trigger for updated_at
-CREATE TRIGGER update_drivers_updated_at 
-    BEFORE UPDATE ON drivers 
-    FOR EACH ROW 
-    EXECUTE FUNCTION update_updated_at_column();
+-- Trigger for updated_at (idempotent)
+DROP TRIGGER IF EXISTS update_drivers_updated_at ON drivers;
+DROP FUNCTION IF EXISTS update_updated_at_column;
+CREATE OR REPLACE FUNCTION update_updated_at_column()
+RETURNS TRIGGER AS $$
+BEGIN
+    NEW.updated_at = CURRENT_TIMESTAMP;
+    RETURN NEW;
+END;
+$$ language 'plpgsql';
+
+CREATE TRIGGER update_drivers_updated_at
+    BEFORE UPDATE ON drivers
+    FOR EACH ROW
+    EXECUTE FUNCTION update_updated_at_column;
+

@@ -50,8 +50,19 @@ CREATE INDEX IF NOT EXISTS idx_rides_dropoff_location ON rides(dropoff_latitude,
 CREATE INDEX IF NOT EXISTS idx_rides_requested_at ON rides(requested_at);
 CREATE INDEX IF NOT EXISTS idx_rides_created_at ON rides(created_at);
 
--- Trigger for updated_at
-CREATE TRIGGER update_rides_updated_at 
-    BEFORE UPDATE ON rides 
-    FOR EACH ROW 
-    EXECUTE FUNCTION update_updated_at_column();
+-- Trigger for updated_at (idempotent)
+DROP TRIGGER IF EXISTS update_rides_updated_at ON rides;
+DROP FUNCTION IF EXISTS update_updated_at_column;
+CREATE OR REPLACE FUNCTION update_updated_at_column()
+RETURNS TRIGGER AS $$
+BEGIN
+    NEW.updated_at = CURRENT_TIMESTAMP;
+    RETURN NEW;
+END;
+$$ language 'plpgsql';
+
+CREATE TRIGGER update_rides_updated_at
+    BEFORE UPDATE ON rides
+    FOR EACH ROW
+    EXECUTE FUNCTION update_updated_at_column;
+
