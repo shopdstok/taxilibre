@@ -1,33 +1,30 @@
+'use strict';
+
 const http = require('http');
 const app = require('./app');
 const { initSocket } = require('./socket');
 const { logger } = require('./services/loggingService');
-const seedAdmin = require('../scripts/seedAdmin');
 const { sequelize } = require('./models');
 const path = require('path');
 const fs = require('fs');
 
 // ─── Configuration du port et host ───────────────────────────────────────────
-let PORT = process.env.PORT || 3003;
-let HOST = process.env.HOST || '0.0.0.0';
-
-// Override si PORT/HOST correspondent aux valeurs Redis par erreur
-if (process.env.REDIS_PORT && process.env.PORT === process.env.REDIS_PORT) {
-  console.warn(`Detected PORT matching REDIS_PORT (${process.env.REDIS_PORT}), overriding to default`);
-  PORT = 3003;
-}
-if (process.env.REDIS_HOST && process.env.HOST === process.env.REDIS_HOST) {
-  console.warn(`Detected HOST matching REDIS_HOST (${process.env.REDIS_HOST}), overriding to 0.0.0.0`);
-  HOST = '0.0.0.0';
-}
+const PORT = parseInt(process.env.PORT, 10) || 3003;
+const HOST = '0.0.0.0'; // Toujours 0.0.0.0 pour Render
 
 // ─── Création du serveur HTTP ─────────────────────────────────────────────────
 const server = http.createServer(app);
 
 // ─── Initialisation de Socket.IO ─────────────────────────────────────────────
-const io = initSocket(server);
+let io;
+try {
+  io = initSocket(server);
+  logger.info('✅ Socket.IO initialisé');
+} catch (err) {
+  logger.error('❌ Erreur initialisation Socket.IO :', err);
+}
 
-// ─── Splitter SQL qui respecte les blocs dollar-quoted ($$ ... $$) ───────────
+// ─── Splitter SQL (blocs dollar-quoted $$ ... $$) ────────────────────────────
 function splitSqlIntoStatements(sql) {
   const statements = [];
   let current = '';
@@ -37,29 +34,25 @@ function splitSqlIntoStatements(sql) {
   for (let i = 0; i < sql.length; i++) {
     const char = sql[i];
 
-    // Détection des délimiteurs de type $$ ou $tag$
     if (char === '$') {
       const match = sql.slice(i).match(/^\$[A-Za-z0-9_]*\$/);
       if (match) {
         const delimiter = match[0];
-        current += delimiter; // ✅ on garde le $$ dans le SQL
+        current += delimiter;
 
         if (!inDollarQuote) {
-          // Ouverture du bloc dollar-quoted
           inDollarQuote = true;
           dollarDelimiter = delimiter;
         } else if (delimiter === dollarDelimiter) {
-          // Fermeture du bloc dollar-quoted
           inDollarQuote = false;
           dollarDelimiter = '';
         }
 
-        i += delimiter.length - 1; // avancer l'index
+        i += delimiter.length - 1;
         continue;
       }
     }
 
-    // Le point-virgule termine un statement SAUF dans un bloc dollar-quoted
     if (char === ';' && !inDollarQuote) {
       if (current.trim()) {
         statements.push(current.trim());
@@ -71,7 +64,6 @@ function splitSqlIntoStatements(sql) {
     current += char;
   }
 
-  // Dernier statement sans point-virgule final
   if (current.trim()) {
     statements.push(current.trim());
   }
@@ -83,52 +75,190 @@ function splitSqlIntoStatements(sql) {
 const runMigrations = async () => {
   const migrationsDirPath = path.join(__dirname, '..', 'database', 'migrations');
 
-  // Vérifier que le dossier existe
   if (!fs.existsSync(migrationsDirPath)) {
-    logger.warn(`Dossier migrations introuvable : ${migrationsDirPath}`);
+    logger.warn(`⚠️  Dossier migrations introuvable : ${migrationsDirPath}`);
     return;
   }
 
-  try {
-    const files = fs.readdirSync(migrationsDirPath);
-    const sqlFiles = files
-      .filter(file => file.endsWith('.sql'))
-      .sort(); // tri numérique/alphabétique pour respecter l'ordre
+  const files = fs.readdirSync(migrationsDirPath);
+  const sqlFiles = files
+    .filter(file => file.endsWith('.sql'))
+    .sort();
 
-    if (sqlFiles.length === 0) {
-      logger.warn('Aucun fichier SQL de migration trouvé');
-      return;
-    }
+  if (sqlFiles.length === 0) {
+    logger.warn('⚠️  Aucun fichier SQL de migration trouvé');
+    return;
+  }
 
-    for (const file of sqlFiles) {
-      const filePath = path.join(migrationsDirPath, file);
-      const sql = fs.readFileSync(filePath, 'utf8');
+  logger.info(`📦 ${sqlFiles.length} fichier(s) de migration détecté(s)`);
 
-      logger.info(`Exécution de la migration : ${file}`);
+  for (const file of sqlFiles) {
+    const filePath = path.join(migrationsDirPath, file);
+    const sql = fs.readFileSync(filePath, 'utf8');
 
-      // Découper le SQL en statements individuels
-      const statements = splitSqlIntoStatements(sql);
+    logger.info(`⏳ Migration en cours : ${file}`);
 
-      for (const statement of statements) {
-        if (statement.trim()) {
-          try {
-            await sequelize.query(statement, {
-              transaction: null,
-              logging: msg => logger.debug(msg),
-            });
-          } catch (stmtError) {
-            logger.error(`Erreur dans le fichier ${file} :\n${statement}\n`, stmtError);
-            throw stmtError;
-          }
+    const statements = splitSqlIntoStatements(sql);
+
+    for (const statement of statements) {
+      if (!statement.trim()) continue;
+      try {
+        await sequelize.query(statement, {
+          transaction: null,
+          logging: msg => logger.debug(msg),
+        });
+      } catch (stmtError) {
+        // Ignorer les erreurs "already exists" (idempotence)
+        const ignoredErrors = [
+          '42P07', // duplicate_table
+          '42701', // duplicate_column
+          '42710', // duplicate_object
+          '23505', // unique_violation
+        ];
+        if (ignoredErrors.includes(stmtError.parent?.code)) {
+          logger.warn(`⚠️  Ignoré (déjà existant) dans ${file} : ${stmtError.message}`);
+          continue;
         }
+        logger.error(`❌ Erreur dans ${file} :\n${statement}`);
+        throw stmtError;
       }
-
-      logger.info(`✅ Migration exécutée avec succès : ${file}`);
     }
-  } catch (error) {
-    logger.error('Erreur lors des migrations :', error);
-    throw error;
+
+    logger.info(`✅ Migration réussie : ${file}`);
   }
 };
 
-// ─── Démarrage du serveur 
+// ─── Seed Admin ───────────────────────────────────────────────────────────────
+const runSeedAdmin = async () => {
+  try {
+    const seedAdmin = require('../scripts/seedAdmin');
+    await seedAdmin();
+    logger.info('✅ Seed admin exécuté avec succès');
+  } catch (err) {
+    // Ne pas bloquer le démarrage si le seed échoue
+    logger.warn(`⚠️  Seed admin ignoré : ${err.message}`);
+  }
+};
+
+// ─── Vérification de la connexion DB ─────────────────────────────────────────
+const checkDatabaseConnection = async () => {
+  try {
+    await sequelize.authenticate();
+    logger.info('✅ Connexion PostgreSQL établie avec succès');
+    return true;
+  } catch (err) {
+    logger.error(`❌ Impossible de se connecter à PostgreSQL : ${err.message}`);
+    return false;
+  }
+};
+
+// ─── Démarrage principal ──────────────────────────────────────────────────────
+const startServer = async () => {
+  try {
+    logger.info('🚀 Démarrage de TaxiLibre Backend...');
+    logger.info(`📍 Environnement : ${process.env.NODE_ENV || 'development'}`);
+    logger.info(`📡 Port cible    : ${PORT}`);
+    logger.info(`🌐 Host cible    : ${HOST}`);
+
+    // 1. Vérifier la connexion DB
+    const dbOk = await checkDatabaseConnection();
+    if (!dbOk) {
+      logger.error('❌ Arrêt : base de données inaccessible');
+      process.exit(1);
+    }
+
+    // 2. Synchronisation Sequelize (sans force en prod)
+    if (process.env.NODE_ENV !== 'production') {
+      await sequelize.sync({ alter: false });
+      logger.info('✅ Sequelize sync effectué (dev)');
+    }
+
+    // 3. Migrations SQL
+    await runMigrations();
+
+    // 4. Seed admin
+    await runSeedAdmin();
+
+    // 5. Démarrage du serveur HTTP sur 0.0.0.0
+    await new Promise((resolve, reject) => {
+      server.listen(PORT, HOST, () => {
+        logger.info('═══════════════════════════════════════');
+        logger.info('  ✅ TAXILIBRE BACKEND EN LIGNE');
+        logger.info(`  📡 http://${HOST}:${PORT}`);
+        logger.info(`  🌍 NODE_ENV : ${process.env.NODE_ENV || 'development'}`);
+        logger.info('═══════════════════════════════════════');
+        resolve();
+      });
+      server.once('error', reject);
+    });
+
+  } catch (err) {
+    logger.error('❌ Erreur critique au démarrage :', err);
+    process.exit(1);
+  }
+};
+
+// ─── Gestion propre de l'arrêt (Graceful Shutdown) ───────────────────────────
+const gracefulShutdown = async (signal) => {
+  logger.info(`\n🛑 Signal ${signal} reçu — arrêt propre en cours...`);
+
+  // 1. Arrêter d'accepter de nouvelles connexions HTTP
+  server.close(async () => {
+    logger.info('✅ Serveur HTTP fermé');
+
+    // 2. Fermer la connexion DB
+    try {
+      await sequelize.close();
+      logger.info('✅ Connexion PostgreSQL fermée');
+    } catch (err) {
+      logger.error('❌ Erreur fermeture PostgreSQL :', err.message);
+    }
+
+    // 3. Fermer Redis si disponible
+    try {
+      const { redisClient } = require('./config/redis');
+      if (redisClient && redisClient.isOpen) {
+        await redisClient.quit();
+        logger.info('✅ Connexion Redis fermée');
+      }
+    } catch (err) {
+      logger.warn('⚠️  Redis déjà fermé ou introuvable');
+    }
+
+    logger.info('👋 TaxiLibre Backend arrêté proprement');
+    process.exit(0);
+  });
+
+  // Forcer l'arrêt après 15 secondes
+  setTimeout(() => {
+    logger.error('⏰ Timeout graceful shutdown — arrêt forcé');
+    process.exit(1);
+  }, 15000);
+};
+
+// ─── Signaux système ──────────────────────────────────────────────────────────
+process.on('SIGTERM', () => gracefulShutdown('SIGTERM')); // Render envoie SIGTERM
+process.on('SIGINT',  () => gracefulShutdown('SIGINT'));  // Ctrl+C local
+
+// ─── Erreurs non gérées ───────────────────────────────────────────────────────
+process.on('uncaughtException', (err) => {
+  logger.error('❌ Erreur non gérée (uncaughtException) :', {
+    message: err.message,
+    stack: err.stack,
+    code: err.code,
+  });
+  process.exit(1);
+});
+
+process.on('unhandledRejection', (reason, promise) => {
+  logger.error('❌ Promise non gérée (unhandledRejection) :', {
+    reason: reason?.message || reason,
+    stack: reason?.stack,
+  });
+  process.exit(1);
+});
+
+// ─── Lancement ────────────────────────────────────────────────────────────────
+startServer();
+
+module.exports = { server, io };
