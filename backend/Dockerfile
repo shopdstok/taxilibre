@@ -2,8 +2,8 @@ FROM node:20-alpine
 
 WORKDIR /app
 
-# Install runtime tools (used by healthchecks)
-RUN apk add --no-cache curl
+# Install runtime tools (used by healthchecks) and netcat for Redis wait
+RUN apk add --no-cache curl netcat-openbsd
 
 # Install dependencies
 COPY package*.json ./
@@ -17,4 +17,5 @@ COPY . .
 
 EXPOSE 3003
 
-CMD ["npm", "start"]
+# Use the start script that waits for Redis
+CMD ["./start.sh"]
