@@ -37,9 +37,18 @@ const runMigrations = async () => {
     for (const file of sqlFiles) {
       const filePath = path.join(migrationsDirPath, file);
       let sql = fs.readFileSync(filePath, 'utf8');
-      // Execute the whole file as a single batch; PostgreSQL will handle multiple statements
-      // and dollar-quoted strings correctly.
-      await sequelize.query(sql, { transaction: null, logging: msg => logger.debug(msg) });
+      // Split SQL into individual statements and execute each separately to avoid issues with 
+      // multiple statements and dollar-quoted strings in some PostgreSQL client versions
+      const statements = sql
+        .split(';')
+        .map(s => s.trim())
+        .filter(s => s.length > 0);
+      
+      for (const statement of statements) {
+        if (statement.trim()) {
+          await sequelize.query(statement, { transaction: null, logging: msg => logger.debug(msg) });
+        }
+      }
       logger.info(`Executed migration: ${file}`);
     }
   } catch (error) {
