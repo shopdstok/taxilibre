@@ -1,117 +1,155 @@
-const { Sequelize } = require('sequelize')
-const pg = require('pg') // Force Vercel à inclure pg dans le bundle
-const path = require('path')
-require('dotenv').config({ path: path.resolve(__dirname, '..', '..', '.env'), override: false })
-const { logger } = require('../services/loggingService')
+const { Sequelize } = require('sequelize');
+const pg = require('pg');
+const path = require('path');
+require('dotenv').config({ 
+  path: path.resolve(__dirname, '..', '..', '.env'), 
+  override: false 
+});
+const { logger } = require('../services/loggingService');
 
-// Validate required environment variables in non-test environments
+const isProduction = process.env.NODE_ENV === 'production';
+const isTest = process.env.NODE_ENV === 'test';
+
+// ─── Validation des variables d'environnement ─────────────────────────────────
 const validateEnv = () => {
-  if (process.env.NODE_ENV === 'test') return true
-  
-  const requiredVars = ['DB_USER', 'DB_PASSWORD', 'DB_HOST', 'DB_PORT', 'DB_NAME']
-  const missingVars = requiredVars.filter(varName => !process.env[varName])
-  
+  if (isTest) return true;
+
+  // Si DATABASE_URL est définie, c'est suffisant (cas Render)
+  if (process.env.DATABASE_URL) {
+    logger.info('✅ DATABASE_URL détectée, utilisation directe');
+    return true;
+  }
+
+  // Sinon on vérifie les variables individuelles
+  const requiredVars = ['DB_USER', 'DB_PASSWORD', 'DB_HOST', 'DB_PORT', 'DB_NAME'];
+  const missingVars = requiredVars.filter(varName => !process.env[varName]);
+
   if (missingVars.length > 0) {
-    logger.error(`❌ Missing required environment variables: ${missingVars.join(', ')}`)
-    logger.error('Please check your .env file in the backend directory')
-    return false
+    logger.error(`❌ Variables manquantes : ${missingVars.join(', ')}`);
+    logger.error('Définissez DATABASE_URL ou les variables DB_* individuelles');
+    return false;
   }
-  
-  return true
-}
 
-// Check if .env file exists
+  return true;
+};
+
+// ─── Vérification du fichier .env ────────────────────────────────────────────
 const checkEnvFile = () => {
-  const fs = require('fs')
-  const envPath = path.resolve(__dirname, '..', '..', '.env')
+  const fs = require('fs');
+  const envPath = path.resolve(__dirname, '..', '..', '.env');
   if (!fs.existsSync(envPath)) {
-    logger.error(`❌ .env file not found at ${envPath}`)
-    logger.error('Please create a .env file in the backend directory with required variables')
+    logger.warn(`⚠️  Fichier .env introuvable à ${envPath}`);
+  }
+};
+
+if (!isTest) {
+  checkEnvFile();
+  if (!validateEnv()) {
+    logger.warn('⚠️  Démarrage avec des variables manquantes — la connexion va probablement échouer');
   }
 }
 
-const isProduction = process.env.NODE_ENV === 'production'
-const isTest = process.env.NODE_ENV === 'test'
+// ─── Construction de l'URL de connexion ──────────────────────────────────────
+const getDatabaseUrl = () => {
+  // Priorité 1 : DATABASE_URL (Render, Heroku, etc.)
+  if (process.env.DATABASE_URL) {
+    return process.env.DATABASE_URL;
+  }
 
-// Validate environment before proceeding
-if (!isTest && !validateEnv()) {
-  // In production, we might want to exit, but let's allow startup to continue
-  // and fail later when trying to connect to provide clearer error
-  logger.warn('⚠️  Continuing with missing environment variables - connection will likely fail')
-}
+  // Priorité 2 : variables individuelles
+  const { DB_USER, DB_PASSWORD, DB_HOST, DB_PORT, DB_NAME } = process.env;
 
-let sequelize
+  if (!DB_USER || !DB_PASSWORD || !DB_HOST || !DB_PORT || !DB_NAME) {
+    logger.error('❌ Impossible de construire DATABASE_URL : variables DB_* manquantes');
+    process.exit(1); // inutile de continuer
+  }
 
-// Database URL (with fallback construction from individual env vars)
-const databaseUrl = process.env.DATABASE_URL ||
-  `postgresql://${process.env.DB_USER}:${process.env.DB_PASSWORD}@${process.env.DB_HOST}:${process.env.DB_PORT}/${process.env.DB_NAME}`
+  return `postgresql://${DB_USER}:${DB_PASSWORD}@${DB_HOST}:${DB_PORT}/${DB_NAME}`;
+};
 
-// Connection pool configuration
-const poolConfig = {
-  max: 20,
-  min: 5,
-  acquire: 30000,
-  idle: isProduction ? 1000 : 10000
-}
-
-// SSL required for cloud-hosted PostgreSQL (Supabase, RDS, etc.)
+// ─── Configuration SSL ────────────────────────────────────────────────────────
 const dialectOptions = isProduction
-  ? { ssl: { require: true, rejectUnauthorized: false } }
-  : {}
+  ? {
+      ssl: {
+        require: true,
+        rejectUnauthorized: false,
+      },
+      connectTimeout: 10000,
+    }
+  : {
+      connectTimeout: 10000,
+    };
+
+// ─── Configuration du pool ────────────────────────────────────────────────────
+const poolConfig = {
+  max: isProduction ? 10 : 5,
+  min: 0,
+  acquire: 30000,
+  idle: isProduction ? 5000 : 10000,
+};
+
+// ─── Création de l'instance Sequelize ─────────────────────────────────────────
+let sequelize;
 
 if (isTest) {
-  // In-memory SQLite for fast isolated tests
+  // SQLite en mémoire pour les tests
   sequelize = new Sequelize({
     dialect: 'sqlite',
     storage: ':memory:',
-    logging: false
-  })
+    logging: false,
+  });
 } else {
-  // PostgreSQL (development, staging, production)
+  const databaseUrl = getDatabaseUrl();
+
+  logger.info(`🔌 Connexion à la base : ${databaseUrl.replace(/:\/\/.*@/, '://***@')}`); // masque le mot de passe
+
   sequelize = new Sequelize(databaseUrl, {
     dialect: 'postgres',
     dialectModule: pg,
     logging: isProduction ? false : (msg) => logger.debug(msg),
     pool: poolConfig,
-    dialectOptions
-  })
+    dialectOptions,
+  });
 }
 
-// Test connection
+// ─── Test de connexion ────────────────────────────────────────────────────────
 const testConnection = async () => {
   try {
-    await sequelize.authenticate()
-    return true
+    await sequelize.authenticate();
+    logger.info('✅ Connexion à la base de données réussie');
+    return true;
   } catch (error) {
-    logger.error('❌ Unable to connect to the database:', error.message)
-    return false
+    logger.error('❌ Impossible de se connecter à la base de données :', error.message);
+    return false;
   }
-}
+};
 
-// Sync models
+// ─── Synchronisation des modèles ──────────────────────────────────────────────
 const syncModels = async (force = false) => {
   try {
-    await sequelize.sync({ force, alter: !force })
-    return true
+    await sequelize.sync({ force, alter: !force });
+    logger.info('✅ Modèles synchronisés');
+    return true;
   } catch (error) {
-    logger.error('❌ Unable to synchronize database models:', error.message)
-    return false
+    logger.error('❌ Erreur de synchronisation des modèles :', error.message);
+    return false;
   }
-}
+};
 
-// Close connection
+// ─── Fermeture de la connexion ────────────────────────────────────────────────
 const closeConnection = async () => {
   try {
-    await sequelize.close()
+    await sequelize.close();
+    logger.info('✅ Connexion à la base fermée');
   } catch (error) {
-    // Ignore errors on close
+    logger.warn('⚠️  Erreur lors de la fermeture de la connexion :', error.message);
   }
-}
+};
 
 module.exports = {
   sequelize,
   Sequelize,
   testConnection,
   syncModels,
-  closeConnection
-}
+  closeConnection,
+};
