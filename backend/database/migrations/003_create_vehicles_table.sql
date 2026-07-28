@@ -32,9 +32,9 @@ CREATE INDEX IF NOT EXISTS idx_vehicles_vehicle_type ON vehicles(vehicle_type);
 CREATE INDEX IF NOT EXISTS idx_vehicles_is_active ON vehicles(is_active);
 CREATE INDEX IF NOT EXISTS idx_vehicles_created_at ON vehicles(created_at);
 
--- Trigger for updated_at (idempotent)
 DROP TRIGGER IF EXISTS update_vehicles_updated_at ON vehicles;
-DROP FUNCTION IF EXISTS update_updated_at_column;
+-- Removed DROP FUNCTION to avoid breaking dependencies on other tables
+-- CREATE OR REPLACE FUNCTION is safe to use with existing dependencies
 CREATE OR REPLACE FUNCTION update_updated_at_column()
 RETURNS TRIGGER AS $$
 BEGIN
@@ -47,4 +47,3 @@ CREATE TRIGGER update_vehicles_updated_at
     BEFORE UPDATE ON vehicles
     FOR EACH ROW
     EXECUTE FUNCTION update_updated_at_column;
-

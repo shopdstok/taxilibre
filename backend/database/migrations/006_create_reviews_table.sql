@@ -31,9 +31,9 @@ CREATE INDEX IF NOT EXISTS idx_reviews_rating ON reviews(rating);
 CREATE INDEX IF NOT EXISTS idx_reviews_status ON reviews(status);
 CREATE INDEX IF NOT EXISTS idx_reviews_created_at ON reviews(created_at);
 
--- Trigger for updated_at (idempotent)
 DROP TRIGGER IF EXISTS update_reviews_updated_at ON reviews;
-DROP FUNCTION IF EXISTS update_updated_at_column;
+-- Removed DROP FUNCTION to avoid breaking dependencies on other tables
+-- CREATE OR REPLACE FUNCTION is safe to use with existing dependencies
 CREATE OR REPLACE FUNCTION update_updated_at_column()
 RETURNS TRIGGER AS $$
 BEGIN
@@ -46,4 +46,3 @@ CREATE TRIGGER update_reviews_updated_at
     BEFORE UPDATE ON reviews
     FOR EACH ROW
     EXECUTE FUNCTION update_updated_at_column;
-

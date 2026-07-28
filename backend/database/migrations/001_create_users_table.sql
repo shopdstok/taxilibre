@@ -24,9 +24,9 @@ CREATE INDEX IF NOT EXISTS idx_users_role ON users(role);
 CREATE INDEX IF NOT EXISTS idx_users_is_active ON users(is_active);
 CREATE INDEX IF NOT EXISTS idx_users_created_at ON users(created_at);
 
--- Trigger for updated_at (idempotent)
 DROP TRIGGER IF EXISTS update_users_updated_at ON users;
-DROP FUNCTION IF EXISTS update_updated_at_column;
+-- Removed DROP FUNCTION to avoid breaking dependencies on other tables
+-- CREATE OR REPLACE FUNCTION is safe to use with existing dependencies
 CREATE OR REPLACE FUNCTION update_updated_at_column()
 RETURNS TRIGGER AS $$
 BEGIN
