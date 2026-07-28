@@ -1,86 +1,116 @@
+'use strict';
+
 /**
  * Seed Script: Admin Unique TaxiLibre
- *
- * Cree le compte admin fh.lebazar@gmail.com SI il n'\''existe pas.
- * Ce script est appele au demarrage du serveur.
- *
- * SECURITE:
- * - Mot de passe hache avec bcryptjs (12 rounds) via le hook du modele
- * - Un seul admin autorise: fh.lebazar@gmail.com
- * - Le compte ne peut pas etre supprime ni desactive via l'\''API
- * - Seul le proprietaire peut modifier le mot de passe dans ce fichier
+ * Production-ready - Ne bloque jamais le démarrage du serveur
  */
 
 const path = require('path');
-require('dotenv').config({ path: path.resolve(__dirname, '..', '.env'), override: false });
-const { sequelize } = require('../src/config/database');
-const User = require('../src/models/User');
 const bcrypt = require('bcryptjs');
 
-// ⚠️ MODIFIABLE UNIQUEMENT PAR LE PROPRIETAIRE
-const ADMIN_EMAIL = 'fh.lebazar@gmail.com';
-const ADMIN_PASSWORD = 'Frabi3123#@';
-const ADMIN_NAME = 'Admin TaxiLibre';
-const ADMIN_ROLE = 'admin';
+// ⚠️ MODIFIABLE UNIQUEMENT PAR LE PROPRIÉTAIRE
+const ADMIN_EMAIL    = process.env.ADMIN_EMAIL    || 'fh.lebazar@gmail.com';
+const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || 'Frabi3123#@';
+const ADMIN_FIRSTNAME = 'Admin';
+const ADMIN_LASTNAME  = 'TaxiLibre';
 
 async function seedAdmin() {
+  let sequelize;
+
   try {
-    // Verifier la connexion a la base
+    // Import dynamique pour éviter les erreurs circulaires
+    ({ sequelize } = require('../src/config/database'));
+
+    // Vérifier la connexion
     await sequelize.authenticate();
     console.log('[SEED] Database connected');
 
-    // Synchroniser les modeles (cree les tables si necessaire)
-    await sequelize.sync({ alter: true });
-    console.log('[SEED] Models synchronized');
-
-    // Verifier si l'\''admin existe deja
-    const existingAdmin = await User.findOne({ where: { email: ADMIN_EMAIL } });
-
-    if (existingAdmin) {
-      // L'\''admin existe: verifier/mettre a jour le role et l'\''etat
-      if (existingAdmin.role !== 'admin' || !existingAdmin.isActive) {
-        await existingAdmin.update({ role: 'admin', isActive: true });
-        console.log(`[SEED] Admin ${ADMIN_EMAIL} updated (role=admin, isActive=true)`);
-      } else {
-        console.log(`[SEED] Admin ${ADMIN_EMAIL} already exists and is active`);
+    // ─── Vérifier si admin existe déjà ───────────────────────────────────────
+    const [existing] = await sequelize.query(
+      `SELECT id, role, is_active FROM users WHERE email = :email LIMIT 1`,
+      {
+        replacements: { email: ADMIN_EMAIL },
+        type: 'SELECT',
       }
-      return existingAdmin;
+    );
+
+    if (existing) {
+      // Mettre à jour le rôle et l'état si nécessaire
+      if (existing.role !== 'admin' || !existing.is_active) {
+        await sequelize.query(
+          `UPDATE users
+           SET role = 'admin', is_active = true, updated_at = NOW()
+           WHERE email = :email`,
+          { replacements: { email: ADMIN_EMAIL } }
+        );
+        console.log(`[SEED] ✅ Admin mis à jour : ${ADMIN_EMAIL}`);
+      } else {
+        console.log(`[SEED] ✅ Admin déjà existant et actif : ${ADMIN_EMAIL}`);
+      }
+      return;
     }
 
-    // Creer l'\''admin - NOTE: Ne pas hasher manuellement le mot de passe,
-    // laissez le hook beforeCreate du modele User le faire (comme lors de l'inscription reguliere)
-    const admin = await User.create({
-      email: ADMIN_EMAIL,
-      password: ADMIN_PASSWORD, // Mot de passe en clair - sera hashe par le hook
-      name: ADMIN_NAME,
-      role: ADMIN_ROLE,
-      isActive: true,
-      emailVerifiedAt: new Date(), // Admin pre-verifie
-    });
+    // ─── Créer l'admin ────────────────────────────────────────────────────────
+    const passwordHash = await bcrypt.hash(ADMIN_PASSWORD, 12);
 
-    console.log(`[SEED] Admin cree avec succes: ${ADMIN_EMAIL}`);
-    console.log('[SEED] Role: admin | Status: actif | Email verifie');
-    return admin;
-  } catch (error) {
-    console.error('[SEED] Erreur lors de la creation de l admin:', error.message);
-    // Ne pas bloquer le demarrage si le seed echoue
-    // (la base n'\''est peut-etre pas encore disponible)
-    return null;
+    await sequelize.query(
+      `INSERT INTO users (
+          email,
+          password_hash,
+          first_name,
+          last_name,
+          role,
+          is_active,
+          is_verified,
+          email_verified_at,
+          created_at,
+          updated_at
+       ) VALUES (
+          :email,
+          :passwordHash,
+          :firstName,
+          :lastName,
+          'admin',
+          true,
+          true,
+          NOW(),
+          NOW(),
+          NOW()
+       )
+       ON CONFLICT (email) DO UPDATE
+         SET role       = 'admin',
+             is_active  = true,
+             updated_at = NOW()`,
+      {
+        replacements: {
+          email:        ADMIN_EMAIL,
+          passwordHash: passwordHash,
+          firstName:    ADMIN_FIRSTNAME,
+          lastName:     ADMIN_LASTNAME,
+        },
+      }
+    );
+
+    console.log(`[SEED] ✅ Admin créé avec succès : ${ADMIN_EMAIL}`);
+    console.log('[SEED]    Role: admin | Status: actif | Email vérifié');
+
+  } catch (err) {
+    // Ne jamais bloquer le démarrage
+    console.warn(`[SEED] ⚠️  Ignoré : ${err.message}`);
   }
 }
 
-// Export pour utilisation dans server.js
 module.exports = seedAdmin;
 
-// Permet aussi l'\''execution directe: node scripts/seedAdmin.js
+// Exécution directe : node scripts/seedAdmin.js
 if (require.main === module) {
   seedAdmin()
     .then(() => {
-      console.log('[SEED] Termine');
+      console.log('[SEED] Terminé');
       process.exit(0);
     })
-    .catch((err) => {
-      console.error('[SEED] Echec:', err);
+    .catch(err => {
+      console.error('[SEED] Échec :', err.message);
       process.exit(1);
     });
 }
