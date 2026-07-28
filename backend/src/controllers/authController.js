@@ -1,517 +1,483 @@
-const { User, Driver, Sequelize } = require('../models')
-const jwtService = require('../services/jwtService')
-const otpService = require('../services/otpService')
-const emailService = require('../services/emailService')
-const auditLogService = require('../services/auditLogService')
-const oauth2Service = require('../services/oauth2Service')
-const { sendSuccess, sendError } = require('../utils/response')
-const AppError = require('../middleware/errorMiddleware').AppError
-const bcrypt = require('bcryptjs')
-const crypto = require('crypto')
+'use strict';
 
-/**
- * Register a new user
- */
+const { User, Driver, Sequelize } = require('../models');
+const jwtService = require('../services/jwtService');
+const otpService = require('../services/otpService');
+const emailService = require('../services/emailService');
+const auditLogService = require('../services/auditLogService');
+const oauth2Service = require('../services/oauth2Service');
+const { sendSuccess } = require('../utils/response');
+const AppError = require('../middleware/errorMiddleware').AppError;
+
+// ─── Helpers ──────────────────────────────────────────────────────────────────
+
+const logAuth = async (action, data = {}) => {
+  try {
+    await auditLogService.logAuthEvent({ action, success: true, ...data });
+  } catch {
+    // Ne jamais bloquer le flux principal si l'audit échoue
+  }
+};
+
+// ─── Register ─────────────────────────────────────────────────────────────────
+
 const register = async (req, res, next) => {
   try {
-    const { email, password, name, phone, role = 'passenger' } = req.body
+    const { email, password, name, phone, role = 'passenger' } = req.body;
 
-    // Validate input
     if (!email || !password || !name) {
-      throw new AppError('Email, password, and name are required', 400, 'MISSING_FIELDS')
+      throw new AppError('Email, password, and name are required', 400, 'MISSING_FIELDS');
     }
 
-    // 🚫 INTERDIRE L'INSCRIPTION ADMIN SAUF POUR fh.lebazar@gmail.com
     if (role === 'admin' && email !== 'fh.lebazar@gmail.com') {
-      throw new AppError('Admin registration is forbidden', 403, 'ADMIN_REGISTRATION_FORBIDDEN')
+      throw new AppError('Admin registration is forbidden', 403, 'ADMIN_REGISTRATION_FORBIDDEN');
     }
 
-    // Check if user already exists
-    const existingUser = await User.findOne({ where: { email } })
+    const existingUser = await User.findOne({ where: { email } });
     if (existingUser) {
-      throw new AppError('User with this email already exists', 409, 'USER_EXISTS')
+      throw new AppError('User with this email already exists', 409, 'USER_EXISTS');
     }
 
-    // Create user
+    // Décomposer name en firstName/lastName
+    const nameParts = (name || '').trim().split(' ');
+    const firstName = nameParts[0] || name;
+    const lastName = nameParts.slice(1).join(' ') || nameParts[0] || '';
+
     const user = await User.create({
       email,
       password,
-      name,
-      phone,
+      firstName,
+      lastName,
+      phone: phone || null,
       role
-    })
+    });
 
-    // Generate tokens
-    const tokens = await jwtService.generateTokenPair(user)
+    const tokens = await jwtService.generateTokenPair(user);
 
-    // Create driver profile if role is driver
     if (role === 'driver') {
-      await Driver.create({
-        userId: user.id,
-        status: 'offline',
-        verificationStatus: 'pending'
-      })
+      try {
+        await Driver.create({
+          userId: user.id,
+          status: 'offline',
+          verificationStatus: 'pending'
+        });
+      } catch (driverErr) {
+        // Ne pas bloquer si la création du profil driver échoue
+        console.warn('[Auth] Driver profile creation failed:', driverErr.message);
+      }
     }
 
-    sendSuccess(res, {
-      user: user.toJSON(),
-      tokens
-    }, 'User registered successfully', 201)
+    sendSuccess(res, { user: user.toJSON(), tokens }, 'User registered successfully', 201);
   } catch (error) {
-    next(error)
+    next(error);
   }
-}
+};
 
-/**
- * Login user
- */
+// ─── Login ────────────────────────────────────────────────────────────────────
+
 const login = async (req, res, next) => {
   try {
-    const { email, password } = req.body
+    const { email, password } = req.body;
 
-    // Validate input
     if (!email || !password) {
-      throw new AppError('Email and password are required', 400, 'MISSING_CREDENTIALS')
+      throw new AppError('Email and password are required', 400, 'MISSING_CREDENTIALS');
     }
 
-    // Find user
-    const user = await User.findOne({
-      where: { email },
-      include: [{ model: Driver, as: 'driver' }]
-    })
+    // ✅ Sans include Driver pour éviter les erreurs de colonnes manquantes
+    const user = await User.findOne({ where: { email } });
 
     if (!user) {
-      throw new AppError('Invalid credentials', 401, 'INVALID_CREDENTIALS')
+      throw new AppError('Invalid credentials', 401, 'INVALID_CREDENTIALS');
     }
 
-    // Check password - validate for ALL users including admin
-    const isPasswordValid = await user.comparePassword(password)
+    const isPasswordValid = await user.comparePassword(password);
     if (!isPasswordValid) {
-      throw new AppError('Invalid credentials', 401, 'INVALID_CREDENTIALS')
+      throw new AppError('Invalid credentials', 401, 'INVALID_CREDENTIALS');
     }
 
-    // Admin access allowed for all admin users
-    // Note: Only restrict in production if needed
+    // Mettre à jour lastLoginAt sans bloquer si erreur
+    try {
+      await user.update({ lastLoginAt: new Date() });
+    } catch {
+      // colonne peut ne pas exister encore
+    }
 
-    // Update last login
-    await user.update({ lastLoginAt: new Date() })
+    const tokens = await jwtService.generateTokenPair(user);
 
-    // Generate tokens
-    const tokens = await jwtService.generateTokenPair(user)
+    await logAuth('login', {
+      userId: user.id,
+      method: 'email',
+      ipAddress: req.ip,
+      userAgent: req.headers['user-agent']
+    });
 
-    sendSuccess(res, {
-      user: user.toJSON(),
-      tokens
-    }, 'Login successful')
+    sendSuccess(res, { user: user.toJSON(), tokens }, 'Login successful');
   } catch (error) {
-    next(error)
+    next(error);
   }
-}
+};
 
-/**
- * Refresh access token with rotation
- */
+// ─── Refresh Token ────────────────────────────────────────────────────────────
+
 const refreshToken = async (req, res, next) => {
   try {
-    const { refreshToken, deviceId } = req.body
+    const { refreshToken: token, deviceId } = req.body;
 
-    if (!refreshToken) {
-      throw new AppError('Refresh token is required', 400, 'MISSING_REFRESH_TOKEN')
+    if (!token) {
+      throw new AppError('Refresh token is required', 400, 'MISSING_REFRESH_TOKEN');
     }
 
-    // Refresh token with rotation
-    const tokens = await jwtService.refreshAccessToken(refreshToken, deviceId)
+    const tokens = await jwtService.refreshAccessToken(token, deviceId);
 
-    sendSuccess(res, {
-      tokens
-    }, 'Token refreshed successfully')
+    sendSuccess(res, { tokens }, 'Token refreshed successfully');
   } catch (error) {
-    next(error)
+    next(error);
   }
-}
+};
 
-/**
- * Get user profile
- */
+// ─── Get Profile ──────────────────────────────────────────────────────────────
+
 const getProfile = async (req, res, next) => {
   try {
-    const user = await User.findByPk(req.userId, {
-      include: req.userRole === 'driver' ? [{ model: Driver, as: 'driver' }] : []
-    })
-
-    if (!user) {
-      throw new AppError('User not found', 404, 'USER_NOT_FOUND')
+    // ✅ Essayer avec Driver, fallback sans si erreur
+    let user;
+    try {
+      user = await User.findByPk(req.userId, {
+        include: req.userRole === 'driver'
+          ? [{ model: Driver, as: 'driver' }]
+          : []
+      });
+    } catch {
+      user = await User.findByPk(req.userId);
     }
 
-    sendSuccess(res, {
-      user: user.toJSON()
-    }, 'Profile retrieved successfully')
-  } catch (error) {
-    next(error)
-  }
-}
+    if (!user) {
+      throw new AppError('User not found', 404, 'USER_NOT_FOUND');
+    }
 
-/**
- * Update user profile
- */
+    sendSuccess(res, { user: user.toJSON() }, 'Profile retrieved successfully');
+  } catch (error) {
+    next(error);
+  }
+};
+
+// ─── Update Profile ───────────────────────────────────────────────────────────
+
 const updateProfile = async (req, res, next) => {
   try {
-    const { name, phone, avatar } = req.body
-    const userId = req.userId
+    const { name, phone, avatar } = req.body;
+    const userId = req.userId;
 
-    const user = await User.findByPk(userId)
+    const user = await User.findByPk(userId);
     if (!user) {
-      throw new AppError('User not found', 404, 'USER_NOT_FOUND')
+      throw new AppError('User not found', 404, 'USER_NOT_FOUND');
     }
 
-    // Update user
-    const updatedUser = await user.update({
-      name: name || user.name,
-      phone: phone || user.phone,
-      avatar: avatar || user.avatar
-    })
+    const updateData = {};
 
-    sendSuccess(res, {
-      user: updatedUser.toJSON()
-    }, 'Profile updated successfully')
+    if (name) {
+      const parts = name.trim().split(' ');
+      updateData.firstName = parts[0];
+      updateData.lastName = parts.slice(1).join(' ') || parts[0];
+    }
+
+    if (phone) updateData.phone = phone;
+    if (avatar) updateData.avatar = avatar;
+
+    const updatedUser = await user.update(updateData);
+
+    sendSuccess(res, { user: updatedUser.toJSON() }, 'Profile updated successfully');
   } catch (error) {
-    next(error)
+    next(error);
   }
-}
+};
 
-/**
- * Logout user (revoke current session)
- */
+// ─── Logout ───────────────────────────────────────────────────────────────────
+
 const logout = async (req, res, next) => {
   try {
-    const { refreshToken } = req.body
+    const { refreshToken: token } = req.body;
 
-    if (!refreshToken) {
-      throw new AppError('Refresh token is required', 400, 'MISSING_REFRESH_TOKEN')
+    if (!token) {
+      throw new AppError('Refresh token is required', 400, 'MISSING_REFRESH_TOKEN');
     }
 
-    // Revoke the refresh token
-    await jwtService.revokeRefreshToken(refreshToken)
+    try {
+      await jwtService.revokeRefreshToken(token);
+    } catch {
+      // Token déjà révoqué ou invalide
+    }
 
-    // Log logout event
-    await auditLogService.logAuthEvent({
-      action: 'logout',
-      userId: req.userId ? req.userId : null,
+    await logAuth('logout', {
+      userId: req.userId || null,
       method: 'token',
-      success: true,
       ipAddress: req.ip,
       userAgent: req.headers['user-agent']
-    })
+    });
 
-    sendSuccess(res, null, 'Logout successful')
+    sendSuccess(res, null, 'Logout successful');
   } catch (error) {
-    next(error)
+    next(error);
   }
-}
+};
 
-/**
- * Logout from all devices
- */
+// ─── Logout All ───────────────────────────────────────────────────────────────
+
 const logoutAll = async (req, res, next) => {
   try {
-    const userId = req.userId
+    const userId = req.userId;
 
-    // Revoke all refresh tokens for user
-    await jwtService.revokeAllUserTokens(userId)
+    try {
+      await jwtService.revokeAllUserTokens(userId);
+    } catch {
+      // Tokens déjà révoqués
+    }
 
-    // Log logout all event
-    await auditLogService.logAuthEvent({
-      action: 'logout_all',
+    await logAuth('logout_all', {
       userId,
       method: 'token',
-      success: true,
       ipAddress: req.ip,
       userAgent: req.headers['user-agent']
-    })
+    });
 
-    sendSuccess(res, null, 'Logged out from all devices successfully')
+    sendSuccess(res, null, 'Logged out from all devices successfully');
   } catch (error) {
-    next(error)
+    next(error);
   }
-}
+};
 
-/**
- * Change password
- */
+// ─── Change Password ──────────────────────────────────────────────────────────
+
 const changePassword = async (req, res, next) => {
   try {
-    const { currentPassword, newPassword } = req.body
-    const userId = req.userId
+    const { currentPassword, newPassword } = req.body;
+    const userId = req.userId;
 
     if (!currentPassword || !newPassword) {
-      throw new AppError('Current password and new password are required', 400, 'MISSING_PASSWORDS')
+      throw new AppError('Current password and new password are required', 400, 'MISSING_PASSWORDS');
     }
 
-    const user = await User.findByPk(userId)
+    if (newPassword.length < 6) {
+      throw new AppError('New password must be at least 6 characters', 400, 'PASSWORD_TOO_SHORT');
+    }
+
+    const user = await User.findByPk(userId);
     if (!user) {
-      throw new AppError('User not found', 404, 'USER_NOT_FOUND')
+      throw new AppError('User not found', 404, 'USER_NOT_FOUND');
     }
 
-    // Verify current password
-    const isPasswordValid = await user.comparePassword(currentPassword)
+    const isPasswordValid = await user.comparePassword(currentPassword);
     if (!isPasswordValid) {
-      throw new AppError('Current password is incorrect', 401, 'INVALID_CURRENT_PASSWORD')
+      throw new AppError('Current password is incorrect', 401, 'INVALID_CURRENT_PASSWORD');
     }
 
-    // Update password
-    await user.update({ password: newPassword })
+    await user.update({ password: newPassword });
 
-    sendSuccess(res, null, 'Password changed successfully')
-  } catch (error) {
-    next(error)
-  }
-}
-
-/**
- * Request password reset
- */
-const requestPasswordReset = async (req, res, next) => {
-  try {
-    const { email } = req.body
-
-    const user = await User.findOne({ where: { email } })
-    if (!user) {
-      // Don't reveal whether email exists for security
-      return sendSuccess(res, null, 'If your email is registered, you will receive a reset link')
-    }
-
-    const resetToken = user.generatePasswordResetToken()
-    await user.save()
-
-    // Send reset email
-    await emailService.sendPasswordReset(email, resetToken)
-
-    // Log password reset request
-    await auditLogService.logAuthEvent({
-      action: 'password_reset_requested',
-      userId: user.id,
-      success: true,
+    await logAuth('password_changed', {
+      userId,
       ipAddress: req.ip,
       userAgent: req.headers['user-agent']
-    })
+    });
 
-    sendSuccess(res, null, 'If your email is registered, you will receive a reset link')
+    sendSuccess(res, null, 'Password changed successfully');
   } catch (error) {
-    next(error)
+    next(error);
   }
-}
+};
 
-/**
- * Reset password with token
- */
+// ─── Request Password Reset ───────────────────────────────────────────────────
+
+const requestPasswordReset = async (req, res, next) => {
+  try {
+    const { email } = req.body;
+
+    const MSG = 'If your email is registered, you will receive a reset link';
+
+    const user = await User.findOne({ where: { email } });
+    if (!user) {
+      return sendSuccess(res, null, MSG);
+    }
+
+    const resetToken = user.generatePasswordResetToken();
+    await user.save();
+
+    try {
+      await emailService.sendPasswordReset(email, resetToken);
+    } catch (emailErr) {
+      console.warn('[Auth] Email reset send failed:', emailErr.message);
+    }
+
+    await logAuth('password_reset_requested', {
+      userId: user.id,
+      ipAddress: req.ip,
+      userAgent: req.headers['user-agent']
+    });
+
+    sendSuccess(res, null, MSG);
+  } catch (error) {
+    next(error);
+  }
+};
+
+// ─── Reset Password ───────────────────────────────────────────────────────────
+
 const resetPassword = async (req, res, next) => {
   try {
-    const { token, password } = req.body
+    const { token, password } = req.body;
+
+    if (!token || !password) {
+      throw new AppError('Token and new password are required', 400, 'MISSING_FIELDS');
+    }
 
     const user = await User.findOne({
       where: {
         resetPasswordToken: token,
-        resetPasswordExpires: {
-          [Sequelize.Op.gt]: new Date()
-        }
+        resetPasswordExpires: { [Sequelize.Op.gt]: new Date() }
       }
-    })
+    });
 
     if (!user) {
-      throw new AppError('Invalid or expired reset token', 400, 'INVALID_TOKEN')
+      throw new AppError('Invalid or expired reset token', 400, 'INVALID_TOKEN');
     }
 
-    // Update password and clear reset token
-    user.password = password
-    user.resetPasswordToken = null
-    user.resetPasswordExpires = null
-    await user.save()
+    user.password = password;
+    user.resetPasswordToken = null;
+    user.resetPasswordExpires = null;
+    await user.save();
 
-    // Log password reset
-    await auditLogService.logAuthEvent({
-      action: 'password_reset',
+    await logAuth('password_reset', {
       userId: user.id,
-      success: true,
       ipAddress: req.ip,
       userAgent: req.headers['user-agent']
-    })
+    });
 
-    sendSuccess(res, null, 'Password has been reset')
+    sendSuccess(res, null, 'Password has been reset');
   } catch (error) {
-    next(error)
+    next(error);
   }
-}
+};
 
-/**
- * OAuth redirect
- */
+// ─── OAuth ────────────────────────────────────────────────────────────────────
+
 const oauthRedirect = async (req, res, next) => {
   try {
-    const { provider } = req.params
-    const state = req.query.state || null
-
-    const authUrl = oauth2Service.getAuthUrl(provider, state)
-    res.redirect(authUrl)
+    const { provider } = req.params;
+    const state = req.query.state || null;
+    const authUrl = oauth2Service.getAuthUrl(provider, state);
+    res.redirect(authUrl);
   } catch (error) {
-    next(error)
+    next(error);
   }
-}
+};
 
-/**
- * OAuth callback
- */
 const oauthCallback = async (req, res, next) => {
   try {
-    const { provider } = req.params
-    const { code, state, error } = req.query
+    const { provider } = req.params;
+    const { code, error } = req.query;
 
-    if (error) {
-      throw new Error(`OAuth error: ${error}`)
-    }
+    if (error) throw new AppError(`OAuth error: ${error}`, 400, 'OAUTH_ERROR');
+    if (!code) throw new AppError('Authorization code not provided', 400, 'MISSING_CODE');
 
-    if (!code) {
-      throw new AppError('Authorization code not provided', 400, 'MISSING_CODE')
-    }
+    const tokenData = await oauth2Service.exchangeCodeForToken(provider, code);
+    const userInfo = await oauth2Service.getUserInfo(provider, tokenData.access_token);
+    const user = await oauth2Service.findOrCreateUser(userInfo, 'passenger');
+    const tokens = await jwtService.generateTokenPair(user);
 
-    // Exchange code for token
-    const tokenData = await oauth2Service.exchangeCodeForToken(provider, code)
-
-    // Get user info from provider
-    const userInfo = await oauth2Service.getUserInfo(provider, tokenData.access_token)
-
-    // Find or create user
-    const user = await oauth2Service.findOrCreateUser(userInfo, 'passenger')
-
-    // Generate tokens
-    const tokens = await jwtService.generateTokenPair(user)
-
-    // Log OAuth login
-    await auditLogService.logAuthEvent({
-      action: 'oauth_login',
+    await logAuth('oauth_login', {
       userId: user.id,
       provider,
-      success: true,
       ipAddress: req.ip,
       userAgent: req.headers['user-agent']
-    })
+    });
 
-    // Redirect to frontend with tokens
-    const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3000'
-    res.redirect(`${frontendUrl}/auth/oauth/callback?access_token=${tokens.accessToken}&refresh_token=${tokens.refreshToken}`)
+    const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3000';
+    res.redirect(
+      `${frontendUrl}/auth/oauth/callback?access_token=${tokens.accessToken}&refresh_token=${tokens.refreshToken}`
+    );
   } catch (error) {
-    next(error)
+    next(error);
   }
-}
+};
 
-/**
- * Send phone OTP for verification
- */
+// ─── OTP Phone ────────────────────────────────────────────────────────────────
+
 const sendPhoneOTP = async (req, res, next) => {
   try {
-    const { phone } = req.body
+    const { phone } = req.body;
+    const result = await otpService.generatePhoneOTP(phone);
 
-    const result = await otpService.generatePhoneOTP(phone)
-
-    // Log OTP sent event
-    await auditLogService.logAuthEvent({
-      action: 'otp_sent',
+    await logAuth('otp_sent', {
       method: 'phone',
       identifier: phone,
-      success: true,
       ipAddress: req.ip,
       userAgent: req.headers['user-agent']
-    })
+    });
 
-    sendSuccess(res, null, result.message)
+    sendSuccess(res, null, result.message);
   } catch (error) {
-    next(error)
+    next(error);
   }
-}
+};
 
-/**
- * Verify phone OTP
- */
 const verifyPhoneOTP = async (req, res, next) => {
   try {
-    const { phone, code } = req.body
+    const { phone, code } = req.body;
+    const result = await otpService.verifyPhoneOTP(phone, code);
 
-    const result = await otpService.verifyPhoneOTP(phone, code)
+    await User.update({ phoneVerifiedAt: new Date() }, { where: { phone } });
 
-    // Mark phone as verified in database
-    await User.update(
-      { phoneVerifiedAt: new Date() },
-      { where: { phone } }
-    )
-
-    // Log verification success
-    await auditLogService.logAuthEvent({
-      action: 'phone_verified',
+    await logAuth('phone_verified', {
       identifier: phone,
-      success: true,
       ipAddress: req.ip,
       userAgent: req.headers['user-agent']
-    })
+    });
 
-    sendSuccess(res, null, result.message)
+    sendSuccess(res, null, result.message);
   } catch (error) {
-    next(error)
+    next(error);
   }
-}
+};
 
-/**
- * Send email OTP for verification
- */
+// ─── OTP Email ────────────────────────────────────────────────────────────────
+
 const sendEmailOTP = async (req, res, next) => {
   try {
-    const { email } = req.body
+    const { email } = req.body;
+    const result = await otpService.generateEmailOTP(email);
 
-    const result = await otpService.generateEmailOTP(email)
-
-    // Log OTP sent event
-    await auditLogService.logAuthEvent({
-      action: 'otp_sent',
+    await logAuth('otp_sent', {
       method: 'email',
       identifier: email,
-      success: true,
       ipAddress: req.ip,
       userAgent: req.headers['user-agent']
-    })
+    });
 
-    sendSuccess(res, null, result.message)
+    sendSuccess(res, null, result.message);
   } catch (error) {
-    next(error)
+    next(error);
   }
-}
+};
 
-/**
- * Verify email OTP
- */
 const verifyEmailOTP = async (req, res, next) => {
   try {
-    const { email, code } = req.body
+    const { email, code } = req.body;
+    const result = await otpService.verifyEmailOTP(email, code);
 
-    const result = await otpService.verifyEmailOTP(email, code)
+    await User.update({ emailVerifiedAt: new Date() }, { where: { email } });
 
-    // Mark email as verified in database
-    await User.update(
-      { emailVerifiedAt: new Date() },
-      { where: { email } }
-    )
-
-    // Log verification success
-    await auditLogService.logAuthEvent({
-      action: 'email_verified',
+    await logAuth('email_verified', {
       identifier: email,
-      success: true,
       ipAddress: req.ip,
       userAgent: req.headers['user-agent']
-    })
+    });
 
-    sendSuccess(res, null, result.message)
+    sendSuccess(res, null, result.message);
   } catch (error) {
-    next(error)
+    next(error);
   }
-}
+};
+
+// ─── Exports ──────────────────────────────────────────────────────────────────
 
 module.exports = {
   register,
@@ -530,4 +496,4 @@ module.exports = {
   verifyEmailOTP,
   oauthRedirect,
   oauthCallback
-}
+};
