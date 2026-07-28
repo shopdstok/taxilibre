@@ -317,10 +317,12 @@ const Ride = sequelize.define('Ride', {
       fields: ['requested_at']
     },
     {
-      fields: ['pickup_latitude', 'pickup_longitude']
+      fields: ['pickup_latitude', 'pickup_longitude'],
+      name: 'idx_rides_pickup_location'
     },
     {
-      fields: ['dropoff_latitude', 'dropoff_longitude']
+      fields: ['dropoff_latitude', 'dropoff_longitude'],
+      name: 'idx_rides_dropoff_location'
     }
   ]
 })

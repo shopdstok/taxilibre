@@ -3,10 +3,23 @@ const app = require('./app');
 const { initSocket } = require('./socket');
 const { logger } = require('./services/loggingService');
 const seedAdmin = require('../scripts/seedAdmin');
+const { sequelize } = require('./models');
+const path = require('path');
+const fs = require('fs');
 
 // Get port from environment or default to 3003
-const PORT = process.env.PORT || 3003;
-const HOST = process.env.HOST || '0.0.0.0';
+let PORT = process.env.PORT || 3003;
+let HOST = process.env.HOST || '0.0.0.0';
+
+// Override if PORT and HOST were mistakenly set to Redis values
+if (process.env.REDIS_PORT && process.env.PORT === process.env.REDIS_PORT) {
+  console.warn(`Detected PORT matching REDIS_PORT (${process.env.REDIS_PORT}), overriding to default`);
+  PORT = 3003;
+}
+if (process.env.REDIS_HOST && process.env.HOST === process.env.REDIS_HOST) {
+  console.warn(`Detected HOST matching REDIS_HOST (${process.env.REDIS_HOST}), overriding to 0.0.0.0`);
+  HOST = '0.0.0.0';
+}
 
 // Create HTTP server
 const server = http.createServer(app);
@@ -14,15 +27,42 @@ const server = http.createServer(app);
 // Initialize Socket.IO
 const io = initSocket(server);
 
+// Function to run SQL migration files in order
+const runMigrations = async () => {
+  const migrationsDirPath = path.join(__dirname, '..', 'database', 'migrations');
+  try {
+    const files = fs.readdirSync(migrationsDirPath);
+    // Filter for .sql files and sort by name (assuming they are numbered)
+    const sqlFiles = files.filter(file => file.endsWith('.sql')).sort();
+    for (const file of sqlFiles) {
+      const filePath = path.join(migrationsDirPath, file);
+      let sql = fs.readFileSync(filePath, 'utf8');
+      // Remove comments that start with -- (single line) to avoid issues with splitting
+      // But we'll keep it simple and split by semicolon
+      const statements = sql.split(';').map(stmt => stmt.trim()).filter(stmt => stmt.length > 0);
+      for (const statement of statements) {
+        await sequelize.query(statement, { logging: msg => logger.debug(msg) });
+      }
+      logger.info(`Executed migration: ${file}`);
+    }
+  } catch (error) {
+    logger.error('Error running migrations:', error);
+    throw error;
+  }
+};
+
 // Fonction de demarrage avec seed admin
 async function startServer() {
   try {
-    // Tester et synchroniser la base de donnees
-    const { sequelize } = require('./models');
+    // Tester la connexion a la base de donnees
     await sequelize.authenticate();
     logger.info('Database connection established');
 
-    // Synchroniser les modeles
+    // Executer les migrations SQL
+    await runMigrations();
+    logger.info('SQL migrations executed');
+
+    // Synchroniser les modeles (sans alteration, car les migrations ont deja mis a jour le schema)
     await sequelize.sync();
     logger.info('Models synchronized');
 
@@ -36,11 +76,10 @@ async function startServer() {
       logger.info(`Socket.IO attached to server`);
     });
   } catch (error) {
-    logger.error('Failed to start server:', error); console.error(error.stack || error);
-    // Demarrer quand meme sans seed (la base n est peut-etre pas encore prete)
-    server.listen(PORT, HOST, () => {
-      logger.warn(`Server running on http://${HOST}:${PORT} (sans seed admin)`);
-    });
+    logger.error('Failed to start server:', error);
+    console.error(error.stack || error);
+    // En cas d'echec, on ne démarre pas le serveur
+    process.exit(1);
   }
 }
 
@@ -74,5 +113,3 @@ process.on('SIGINT', async () => {
 startServer();
 
 module.exports = server;
-
-
