@@ -37,12 +37,8 @@ const runMigrations = async () => {
     for (const file of sqlFiles) {
       const filePath = path.join(migrationsDirPath, file);
       let sql = fs.readFileSync(filePath, 'utf8');
-      // Split SQL into individual statements and execute each separately to avoid issues with 
-      // multiple statements and dollar-quoted strings in some PostgreSQL client versions
-      const statements = sql
-        .split(';')
-        .map(s => s.trim())
-        .filter(s => s.length > 0);
+      // Split SQL into statements more intelligently to handle PostgreSQL dollar-quoted strings
+      const statements = splitSqlIntoStatements(sql);
       
       for (const statement of statements) {
         if (statement.trim()) {
@@ -57,6 +53,65 @@ const runMigrations = async () => {
   }
 };
 
+// Simple SQL splitter that respects PostgreSQL dollar-quoted strings
+// This handles the most common case: $$ ... $$ strings in CREATE FUNCTION
+function splitSqlIntoStatements(sql) {
+  const statements = [];
+  let current = '';
+  let inDollarQuote = false;
+  let dollarDelimiter = '';
+  
+  for (let i = 0; i < sql.length; i++) {
+    const char = sql[i];
+    const nextChar = sql[i + 1];
+    
+    // Handle dollar quote delimiters
+    if (!inDollarQuote && char === '$' && nextChar) {
+      // Check if this is the start of a dollar quote delimiter
+      let delimiter = '$';
+      let j = i + 1;
+      while (j < sql.length && sql[j] !== '$' && sql[j] !== ' ' && sql[j] !== '\n' && sql[j] !== '\t') {
+        delimiter += sql[j];
+        j++;
+      }
+      if (j < sql.length && sql[j] === '$') {
+        // Found a dollar quote delimiter like $$, $tag$, etc.
+        delimiter += '$';
+        if (!inDollarQuote) {
+          // Starting a dollar-quoted string
+          inDollarQuote = true;
+          dollarDelimiter = delimiter;
+          // Skip over the entire delimiter
+          i += delimiter.length - 1;
+          continue;
+        } else if (delimiter === dollarDelimiter) {
+          // Ending the dollar-quoted string
+          inDollarQuote = false;
+          dollarDelimiter = '';
+          // Skip over the entire delimiter
+          i += delimiter.length - 1;
+          continue;
+        }
+      }
+    }
+    
+    // Handle semicolons as statement terminators (but not inside dollar quotes)
+    if (char === ';' && !inDollarQuote) {
+      statements.push(current.trim());
+      current = '';
+      continue;
+    }
+    
+    current += char;
+  }
+  
+  // Don't forget the last statement
+  if (current.trim()) {
+    statements.push(current.trim());
+  }
+  
+  return statements.filter(s => s.length > 0);
+}
 // Function to start server with seed admin
 async function startServer() {
   try {
