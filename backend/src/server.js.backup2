@@ -37,9 +37,12 @@ const runMigrations = async () => {
     for (const file of sqlFiles) {
       const filePath = path.join(migrationsDirPath, file);
       let sql = fs.readFileSync(filePath, 'utf8');
-      // Execute the whole file as a single batch; PostgreSQL will handle multiple statements
-      // and dollar-quoted strings correctly.
-      await sequelize.query(sql, { logging: msg => logger.debug(msg) });
+      // Remove comments that start with -- (single line) to avoid issues with splitting
+      // But we'll keep it simple and split by semicolon
+      const statements = sql.split(';').map(stmt => stmt.trim()).filter(stmt => stmt.length > 0);
+      for (const statement of statements) {
+        await sequelize.query(statement, { logging: msg => logger.debug(msg) });
+      }
       logger.info(`Executed migration: ${file}`);
     }
   } catch (error) {
@@ -48,34 +51,34 @@ const runMigrations = async () => {
   }
 };
 
-// Function to start server with seed admin
+// Fonction de demarrage avec seed admin
 async function startServer() {
   try {
-    // Test database connection
+    // Tester la connexion a la base de donnees
     await sequelize.authenticate();
     logger.info('Database connection established');
 
-    // Run SQL migrations
+    // Executer les migrations SQL
     await runMigrations();
     logger.info('SQL migrations executed');
 
-    // Synchronize models (no alteration, as migrations already updated schema)
+    // Synchroniser les modeles (sans alteration, car les migrations ont deja mis a jour le schema)
     await sequelize.sync();
     logger.info('Models synchronized');
 
-    // Seed the admin user
+    // Seed du compte admin unique
     await seedAdmin();
     logger.info('Admin seed verified');
 
-    // Start the server
+    // Demarrer le serveur
     server.listen(PORT, HOST, () => {
       logger.info(`Server running on http://${HOST}:${PORT}`);
-      logger.info('Socket.IO attached to server');
+      logger.info(`Socket.IO attached to server`);
     });
   } catch (error) {
     logger.error('Failed to start server:', error);
     console.error(error.stack || error);
-    // On failure, do not start the server
+    // En cas d'echec, on ne démarre pas le serveur
     process.exit(1);
   }
 }
@@ -106,7 +109,7 @@ process.on('SIGINT', async () => {
   });
 });
 
-// Start the server
+// Demarrer
 startServer();
 
 module.exports = server;
