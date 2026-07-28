@@ -135,11 +135,12 @@ export default function createApiServices(api) {
 // --- CRÉATION D'UNE INSTANCE PAR DÉFAUT ---
 
 // URL de l'API backend (variable d'environnement Vite ou fallback)
-const API_BASE_URL = typeof import.meta !== 'undefined' && import.meta.env?.VITE_API_URL
-  ? import.meta.env.VITE_API_URL
-  : (typeof process !== 'undefined' && process.env?.VITE_API_URL)
-    ? process.env.VITE_API_URL
-    : '';
+const API_BASE_URL =
+  (typeof import.meta !== 'undefined' && import.meta.env?.VITE_API_BASE_URL) ||
+  (typeof process !== 'undefined' && process.env?.VITE_API_BASE_URL) ||
+  'https://backend-a9ve.onrender.com';
+
+console.log('[API] Base URL utilisée:', API_BASE_URL);
 
 // Création d'une instance Axios avec intercepteur auth
 const defaultApi = axios.create({
