@@ -5,6 +5,9 @@ const path = require('path');
 const fs = require('fs');
 
 const app = require('./app');
+// Le serveur démarre même si la base de données n'est pas encore prête.
+// /health répond toujours ; /ready répond 503 tant que la DB n'est pas connectée.
+app.set('dbReady', false);
 const { initSocket } = require('./socket');
 const { logger } = require('./services/loggingService');
 const { sequelize } = require('./models');
@@ -148,6 +151,38 @@ const runSeedAdmin = async () => {
 };
 
 // ─────────────────────────────────────────────────────────────
+// DATABASE INIT (non-bloquant, avec retry) — lancé APRÈS listen
+// ─────────────────────────────────────────────────────────────
+const initDatabase = async () => {
+  const MAX_ATTEMPTS = 12;
+  const DELAY_MS = 5000;
+
+  for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
+    try {
+      logger.info(`🔌 [DB ${attempt}/${MAX_ATTEMPTS}] Connexion PostgreSQL...`);
+      await sequelize.authenticate();
+      logger.info('✅ PostgreSQL connecté');
+
+      await runMigrations();
+      await runSeedAdmin();
+
+      app.set('dbReady', true);
+      logger.info('✅ Base de données prête — API pleinement opérationnelle');
+      return;
+    } catch (err) {
+      logger.error(`❌ [DB ${attempt}/${MAX_ATTEMPTS}] Échec : ${err.message}`);
+      if (attempt < MAX_ATTEMPTS) {
+        logger.info(`⏳ Nouvelle tentative dans ${DELAY_MS / 1000}s...`);
+        await new Promise((resolve) => setTimeout(resolve, DELAY_MS));
+      }
+    }
+  }
+
+  logger.error('⛔ Base de données injoignable après plusieurs tentatives. Le serveur reste en ligne (/health=OK) mais les routes DB renverront des erreurs.');
+  app.set('dbReady', false);
+};
+
+// ─────────────────────────────────────────────────────────────
 // START SERVER
 // ─────────────────────────────────────────────────────────────
 const startServer = async () => {
@@ -155,19 +190,24 @@ const startServer = async () => {
     logger.info('🚀 Démarrage TaxiLibre...');
     logger.info(`📡 PORT = ${PORT}`);
 
-    await sequelize.authenticate();
-    logger.info('✅ PostgreSQL connecté');
-
-    await runMigrations();
-    await runSeedAdmin();
-
+    // ✅ On écoute IMMÉDIATEMENT : Render passe en "live" et /health répond
+    // même si la base de données est temporairement injoignable.
     server.listen(PORT, HOST, () => {
       logger.info('══════════════════════════════');
-      logger.info(`✅ Backend en ligne`);
+      logger.info(`✅ Backend en ligne (HTTP)`);
       logger.info(`🌍 http://${HOST}:${PORT}`);
       logger.info('══════════════════════════════');
     });
 
+    server.on('error', (err) => {
+      logger.error('❌ Erreur HTTP server :', err);
+      process.exit(1);
+    });
+
+    // ✅ Initialisation de la DB en arrière-plan, SANS bloquer le serveur.
+    initDatabase().catch((err) => {
+      logger.error('❌ initDatabase non géré :', err);
+    });
   } catch (err) {
     logger.error('❌ Erreur critique au démarrage :', err);
     process.exit(1);
@@ -192,12 +232,29 @@ const shutdown = async (signal) => {
 process.on('SIGTERM', () => shutdown('SIGTERM'));
 process.on('SIGINT', () => shutdown('SIGINT'));
 
-process.on('uncaughtException', err => {
+// Redis est optionnel : ne jamais planter le processus sur une erreur Redis.
+const isRedisConnectionRefused = (err) => {
+  if (!err) return false;
+  if (err.code === 'ECONNREFUSED' && (err.port === 6379 || String(err.address || '').includes('redis'))) return true;
+  if (err.code === 'ENOTFOUND' && String(err.hostname || err.address || '').includes('redis')) return true;
+  const msg = String(err.message || err);
+  return msg.includes('redis') && (msg.includes('ECONNREFUSED') || msg.includes('connect'));
+};
+
+process.on('uncaughtException', (err) => {
+  if (isRedisConnectionRefused(err)) {
+    logger.warn('⚠️  Redis ignoré (non utilisé) — uncaughtException:', err.message);
+    return;
+  }
   logger.error('❌ uncaughtException:', err);
   process.exit(1);
 });
 
-process.on('unhandledRejection', err => {
+process.on('unhandledRejection', (err) => {
+  if (isRedisConnectionRefused(err)) {
+    logger.warn('⚠️  Redis ignoré (non utilisé) — unhandledRejection:', err.message);
+    return;
+  }
   logger.error('❌ unhandledRejection:', err);
   process.exit(1);
 });

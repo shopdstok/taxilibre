@@ -14,24 +14,36 @@ function initSocket (server) {
     }
   })
 
-  // Setup Redis adapter for horizontal scaling
-  const redisHost = process.env.REDIS_HOST || 'localhost'
-  const redisPort = process.env.REDIS_PORT || 6379
+  // Redis adapter is OPTIONAL (horizontal scaling). Disabled by default to avoid
+  // crash-loops when no Redis is available. Enable with REDIS_ENABLE=true.
+  if (process.env.REDIS_ENABLE === 'true') {
+    try {
+      const redisHost = process.env.REDIS_HOST || 'localhost'
+      const redisPort = parseInt(process.env.REDIS_PORT, 10) || 6379
+      const clientOpts = process.env.REDIS_URL
+        ? { url: process.env.REDIS_URL }
+        : { socket: { host: redisHost, port: redisPort } }
 
-  pubClient = createClient({
-    socket: {
-      host: redisHost,
-      port: redisPort
+      pubClient = createClient(clientOpts)
+      subClient = pubClient.duplicate()
+      pubClient.on('error', (err) => logger.warn('Redis pub client error:', err.message))
+      subClient.on('error', (err) => logger.warn('Redis sub client error:', err.message))
+
+      // Best-effort connect: le serveur reste en ligne même si Redis est down.
+      Promise.all([pubClient.connect(), subClient.connect()])
+        .then(() => {
+          io.adapter(createAdapter(pubClient, subClient))
+          logger.info('✅ Socket.IO Redis adapter activé')
+        })
+        .catch((err) => {
+          logger.warn('⚠️  Redis adapter désactivé (Redis non joignable) :', err.message)
+        })
+    } catch (err) {
+      logger.warn('⚠️  Redis adapter non initialisé :', err.message)
     }
-  })
-  subClient = pubClient.duplicate()
-  pubClient.on('error', (err) => logger.error('Redis pub client error:', err));
-  subClient.on('error', (err) => logger.error('Redis sub client error:', err));
-
-  pubClient.connect().catch((err) => logger.error('Redis pub client connection error:', err))
-  subClient.connect().catch((err) => logger.error('Redis sub client connection error:', err))
-
-  io.adapter(createAdapter(pubClient, subClient))
+  } else {
+    logger.info('ℹ️  Socket.IO sans Redis adapter (REDIS_ENABLE !== true)')
+  }
 
   // Initialize socket service with IO instance
   const socketService = require('../services/socketService')
