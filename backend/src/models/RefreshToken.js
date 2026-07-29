@@ -1,5 +1,7 @@
-const { DataTypes } = require('sequelize')
-const { sequelize } = require('../config/database')
+'use strict';
+
+const { DataTypes } = require('sequelize');
+const { sequelize } = require('../config/database');
 
 const RefreshToken = sequelize.define('RefreshToken', {
   id: {
@@ -8,29 +10,31 @@ const RefreshToken = sequelize.define('RefreshToken', {
     primaryKey: true
   },
   token: {
-    type: DataTypes.STRING,
+    type: DataTypes.TEXT,
     allowNull: false,
     unique: true
   },
   userId: {
     type: DataTypes.UUID,
     allowNull: false,
-    references: {
-      model: 'users',
-      key: 'id'
-    }
+    field: 'user_id',
+    references: { model: 'users', key: 'id' }
   },
   expiresAt: {
     type: DataTypes.DATE,
-    allowNull: false
+    allowNull: false,
+    field: 'expires_at'
   },
-  createdAt: {
-    type: DataTypes.DATE,
-    defaultValue: DataTypes.NOW
+  isRevoked: {
+    type: DataTypes.BOOLEAN,
+    defaultValue: false,
+    field: 'is_revoked'
   }
 }, {
   tableName: 'refresh_tokens',
-  timestamps: false
-})
+  timestamps: true,
+  createdAt: 'created_at',
+  updatedAt: false
+});
 
-module.exports = RefreshToken
+module.exports = RefreshToken;
