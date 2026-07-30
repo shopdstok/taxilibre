@@ -166,7 +166,10 @@ const handleDatabaseError = (error, req, res, next) => {
     })
   }
 
-  next(error)
+  // Erreurs Sequelize non reconnues (ex. SequelizeDatabaseError
+  // "column ... does not exist") : répondre en JSON 500 au lieu de
+  // laisser Express renvoyer sa page HTML par défaut.
+  return handleAsyncError(error, req, res, next)
 }
 
 /**
