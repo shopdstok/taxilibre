@@ -53,6 +53,10 @@ variable "stripe_secret_key" {
   sensitive   = true
 }
 
+/*=========================================================================
+  ECS SERVICES
+=========================================================================*/
+
 ## ecs-services.tf
 
 # Backend Service
@@ -75,7 +79,7 @@ resource "aws_ecs_service" "backend" {
     container_port   = 3003
   }
 
-  depends_on = [aws_lb_listener.main]
+  depends_on = [aws_lb_listener.https]
 
   tags = {
     Name = "taxilibre-backend"
@@ -96,7 +100,7 @@ resource "aws_ecs_service" "passenger_web" {
     assign_public_ip = true
   }
 
-  depends_on = [aws_lb_listener.main]
+  depends_on = [aws_lb_listener.https]
 
   tags = {
     Name = "taxilibre-passenger-web"
@@ -105,8 +109,7 @@ resource "aws_ecs_service" "passenger_web" {
 
 resource "aws_ecs_service" "driver_web" {
   name            = "taxilibre-driver-web"
-  cluster         = aws_ecs_cluster.main.id
-  task_definition = aws_ecs_task_definition.driver_web.arn
+  cluster         = aws_ecs_task_definition.driver_web.arn
   desired_count   = 2
   launch_type     = "FARGATE"
 
@@ -116,7 +119,7 @@ resource "aws_ecs_service" "driver_web" {
     assign_public_ip = true
   }
 
-  depends_on = [aws_lb_listener.main]
+  depends_on = [aws_lb_listener.https]
 
   tags = {
     Name = "taxilibre-driver-web"
@@ -136,12 +139,16 @@ resource "aws_ecs_service" "admin_dashboard" {
     assign_public_ip = true
   }
 
-  depends_on = [aws_lb_listener.main]
+  depends_on = [aws_lb_listener.https]
 
   tags = {
     Name = "taxilibre-admin-dashboard"
   }
 }
+
+/*=========================================================================
+  LOAD BALANCER
+=========================================================================*/
 
 ## load-balancer.tf
 
@@ -192,11 +199,29 @@ resource "aws_lb_target_group" "frontend" {
   }
 }
 
-# Load Balancer Listener
-resource "aws_lb_listener" "main" {
+# HTTP Listener (Redirect to HTTPS)
+resource "aws_lb_listener" "http" {
   load_balancer_arn = aws_lb.main.arn
   port              = "80"
   protocol          = "HTTP"
+
+  default_action {
+    type = "redirect"
+    redirect {
+      port        = "443"
+      protocol    = "HTTPS"
+      status_code = "HTTP_301"
+    }
+  }
+}
+
+# HTTPS Listener
+resource "aws_lb_listener" "https" {
+  load_balancer_arn = aws_lb.main.arn
+  port              = "443"
+  protocol          = "HTTPS"
+  ssl_policy        = "ELBSecurityPolicy-TLS-1-2-2017-01"
+  certificate_arn   = aws_acm_certificate_validation.main.certificate_arn
 
   default_action {
     type             = "forward"
@@ -204,9 +229,9 @@ resource "aws_lb_listener" "main" {
   }
 }
 
-# Listener Rules for path-based routing
+# Listener Rules for path-based routing (attached to HTTPS listener)
 resource "aws_lb_listener_rule" "driver_web" {
-  listener_arn = aws_lb_listener.main.arn
+  listener_arn = aws_lb_listener.https.arn
   priority     = 100
 
   condition {
@@ -222,7 +247,7 @@ resource "aws_lb_listener_rule" "driver_web" {
 }
 
 resource "aws_lb_listener_rule" "admin_dashboard" {
-  listener_arn = aws_lb_listener.main.arn
+  listener_arn = aws_lb_listener.https.arn
   priority     = 200
 
   condition {
@@ -238,7 +263,7 @@ resource "aws_lb_listener_rule" "admin_dashboard" {
 }
 
 resource "aws_lb_listener_rule" "api" {
-  listener_arn = aws_lb_listener.main.arn
+  listener_arn = aws_lb_listener.https.arn
   priority     = 300
 
   condition {
