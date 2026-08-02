@@ -54,6 +54,99 @@ variable "stripe_secret_key" {
 }
 
 /*=========================================================================
+  SERVICE DISCOVERY (AWS CLOUD MAP)
+=========================================================================*/
+
+## service-discovery.tf
+
+# Private DNS namespace for service discovery
+resource "aws_servicediscovery_private_dns_namespace" "internal" {
+  name        = "taxilibre.internal"
+  description = "Internal service discovery namespace for TaxiLibre"
+  vpc         = aws_vpc.main.id
+}
+
+# Backend service discovery
+resource "aws_servicediscovery_service" "backend" {
+  name = "backend"
+  description = "Backend API service"
+
+  dns_config {
+    namespace_id = aws_servicediscovery_private_dns_namespace.internal.id
+    routing_policy = "MULTIVALUE"
+
+    dns_records {
+      type = "A"
+      ttl  = 60
+    }
+  }
+
+  health_check_custom_config {
+    failure_threshold = 1
+  }
+}
+
+# Passenger web service discovery
+resource "aws_servicediscovery_service" "passenger_web" {
+  name = "passenger-web"
+  description = "Passenger web application service"
+
+  dns_config {
+    namespace_id = aws_servicediscovery_private_dns_namespace.internal.id
+    routing_policy = "MULTIVALUE"
+
+    dns_records {
+      type = "A"
+      ttl  = 60
+    }
+  }
+
+  health_check_custom_config {
+    failure_threshold = 1
+  }
+}
+
+# Driver web service discovery
+resource "aws_servicediscovery_service" "driver_web" {
+  name = "driver-web"
+  description = "Driver web application service"
+
+  dns_config {
+    namespace_id = aws_servicediscovery_private_dns_namespace.internal.id
+    routing_policy = "MULTIVALUE"
+
+    dns_records {
+      type = "A"
+      ttl  = 60
+    }
+  }
+
+  health_check_custom_config {
+    failure_threshold = 1
+  }
+}
+
+# Admin dashboard service discovery
+resource "aws_servicediscovery_service" "admin_dashboard" {
+  name = "admin-dashboard"
+  description = "Admin dashboard application service"
+
+  dns_config {
+    namespace_id = aws_servicediscovery_private_dns_namespace.internal.id
+    routing_policy = "MULTIVALUE"
+
+    dns_records {
+      type = "A"
+      ttl  = 60
+    }
+  }
+
+  health_check_custom_config {
+    failure_threshold = 1
+  }
+}
+
+/*=========================================================================
   ECS SERVICES
 =========================================================================*/
 
@@ -79,6 +172,10 @@ resource "aws_ecs_service" "backend" {
     container_port   = 3003
   }
 
+  service_registries {
+    registry_arn = aws_servicediscovery_service.backend.arn
+  }
+
   depends_on = [aws_lb_listener.https]
 
   tags = {
@@ -100,6 +197,10 @@ resource "aws_ecs_service" "passenger_web" {
     assign_public_ip = true
   }
 
+  service_registries {
+    registry_arn = aws_servicediscovery_service.passenger_web.arn
+  }
+
   depends_on = [aws_lb_listener.https]
 
   tags = {
@@ -109,7 +210,8 @@ resource "aws_ecs_service" "passenger_web" {
 
 resource "aws_ecs_service" "driver_web" {
   name            = "taxilibre-driver-web"
-  cluster         = aws_ecs_task_definition.driver_web.arn
+  cluster         = aws_ecs_cluster.main.id
+  task_definition = aws_ecs_task_definition.driver_web.arn
   desired_count   = 2
   launch_type     = "FARGATE"
 
@@ -117,6 +219,10 @@ resource "aws_ecs_service" "driver_web" {
     subnets          = aws_subnet.public[*].id
     security_groups  = [aws_security_group.frontend.id]
     assign_public_ip = true
+  }
+
+  service_registries {
+    registry_arn = aws_servicediscovery_service.driver_web.arn
   }
 
   depends_on = [aws_lb_listener.https]
@@ -137,6 +243,10 @@ resource "aws_ecs_service" "admin_dashboard" {
     subnets          = aws_subnet.public[*].id
     security_groups  = [aws_security_group.frontend.id]
     assign_public_ip = true
+  }
+
+  service_registries {
+    registry_arn = aws_servicediscovery_service.admin_dashboard.arn
   }
 
   depends_on = [aws_lb_listener.https]
