@@ -22,14 +22,9 @@ process.on('unhandledRejection', (reason) => {
 const startServer = async () => {
   try {
     // Probar la conexión a la base de datos
-    const isConnected = await sequelize.authenticate()
-    if (isConnected) {
-      logger.info('✅ Conexión a la base de datos establecida')
-      app.set('dbReady', true)
-    } else {
-      logger.error('❌ Error al conectar a la base de datos')
-      app.set('dbReady', false)
-    }
+    await sequelize.authenticate()
+    logger.info('✅ Conexión a la base de datos establecida')
+    app.set('dbReady', true)
 
     // Opcional: sincronizar modelos (descomentar si es necesario)
     // await sequelize.sync({ alter: true })
