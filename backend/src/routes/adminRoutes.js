@@ -40,7 +40,7 @@ router.get('/dashboard', async (req, res, next) => {
 
     const revenueToday = await Payment.sum('amount', { where: { createdAt: { [Op.between]: [startOfDay, endOfDay] } } }) || 0;
 
-    // Courses recentes (dernieres 10)
+    // Courses récentes (dernières 10)
     const recentRidesRaw = await Ride.findAll({
       limit: 10,
       order: [['createdAt', 'DESC']],
@@ -85,11 +85,40 @@ router.get('/dashboard', async (req, res, next) => {
 // ============================================================
 router.get('/drivers', async (req, res, next) => {
   try {
-    const drivers = await Driver.findAll({
+    const { page = 1, limit = 20, search, isAvailable } = req.query;
+    const offset = (parseInt(page) - 1) * parseInt(limit);
+    const where = {};
+    
+    if (isAvailable !== undefined) {
+      where.is_available = isAvailable === 'true';
+    }
+    
+    if (search) {
+      where[Op.or] = [
+        {'$User.name$': { [Op.like]: `%${search}%` }},
+        {'$User.email$': { [Op.like]: `%${search}%` }},
+        {'$User.phone$': { [Op.like]: `%${search}%` }}
+      ];
+    }
+    
+    const { count, rows } = await Driver.findAndCountAll({
+      where,
       include: [{ model: User, attributes: ['id', 'name', 'email', 'phone', 'isActive'] }],
+      offset,
+      limit: parseInt(limit),
       order: [['createdAt', 'DESC']],
     });
-    res.json({ success: true, data: drivers });
+    
+    res.json({ 
+      success: true, 
+      data: rows, 
+      pagination: { 
+        page: parseInt(page), 
+        limit: parseInt(limit), 
+        total: count, 
+        totalPages: Math.ceil(count / parseInt(limit)) 
+      } 
+    });
   } catch (error) { next(error); }
 });
 
@@ -136,7 +165,7 @@ router.delete('/drivers/:id', async (req, res, next) => {
   try {
     const driver = await Driver.findByPk(req.params.id);
     if (!driver) throw new AppError('Driver not found', 404);
-    // Ne pas supprimer l'\''utilisateur admin
+    // Ne pas supprimer l'utilisateur admin
     const user = await User.findByPk(driver.userId);
     if (user && user.email === 'fh.lebazar@gmail.com') {
       throw new AppError('Cannot delete admin account', 403, 'ADMIN_PROTECTED');
@@ -202,11 +231,40 @@ router.put('/rides/:id/status', async (req, res, next) => {
 // ============================================================
 router.get('/users', async (req, res, next) => {
   try {
-    const users = await User.findAll({
+    const { page = 1, limit = 20, search, isActive } = req.query;
+    const offset = (parseInt(page) - 1) * parseInt(limit);
+    const where = {};
+    
+    if (isActive !== undefined) {
+      where.isActive = isActive === 'true';
+    }
+    
+    if (search) {
+      where[Op.or] = [
+        { name: { [Op.like]: `%${search}%` } },
+        { email: { [Op.like]: `%${search}%` } },
+        { phone: { [Op.like]: `%${search}%` } }
+      ];
+    }
+    
+    const { count, rows } = await User.findAndCountAll({
+      where,
       attributes: { exclude: ['password', 'resetPasswordToken', 'resetPasswordExpires'] },
+      offset,
+      limit: parseInt(limit),
       order: [['createdAt', 'DESC']],
     });
-    res.json({ success: true, data: users });
+    
+    res.json({ 
+      success: true, 
+      data: rows, 
+      pagination: { 
+        page: parseInt(page), 
+        limit: parseInt(limit), 
+        total: count, 
+        totalPages: Math.ceil(count / parseInt(limit)) 
+      } 
+    });
   } catch (error) { next(error); }
 });
 
@@ -225,7 +283,7 @@ router.put('/users/:id/status', async (req, res, next) => {
     const { isActive } = req.body;
     const user = await User.findByPk(req.params.id);
     if (!user) throw new AppError('User not found', 404);
-    // 🔒 PROTECTION: empecher desactivation de l'\''admin
+    // 🔒 PROTECTION: empecher desactivation de l'admin
     if (user.email === 'fh.lebazar@gmail.com' && isActive === false) {
       throw new AppError('Cannot deactivate the admin account', 403, 'ADMIN_PROTECTED');
     }
@@ -238,7 +296,7 @@ router.delete('/users/:id', async (req, res, next) => {
   try {
     const user = await User.findByPk(req.params.id);
     if (!user) throw new AppError('User not found', 404);
-    // 🔒 PROTECTION: empecher suppression de l'\''admin
+    // 🔒 PROTECTION: empecher suppression de l'admin
     if (user.email === 'fh.lebazar@gmail.com') {
       throw new AppError('Cannot delete the admin account', 403, 'ADMIN_PROTECTED');
     }
@@ -275,7 +333,7 @@ router.get('/revenue', async (req, res, next) => {
       { period: 'Cette semaine', amount: totalRevenue * 0.25 },
       { period: 'Ce mois', amount: totalRevenue * 0.60 },
       { period: 'Ce trimestre', amount: totalRevenue * 0.85 },
-      { period: 'Cette annee', amount: totalRevenue },
+      { period: 'Cette année', amount: totalRevenue },
     ];
 
     res.json({ success: true, data: { totalRevenue, platformFees, driverEarnings, breakdown, revenueByPeriod } });
@@ -287,23 +345,47 @@ router.get('/revenue', async (req, res, next) => {
 // ============================================================
 router.get('/support', async (req, res, next) => {
   try {
-    // Support tickets = rides annulees + drivers suspended (a titre d'\''exemple)
-    const cancelledRides = await Ride.findAll({
-      where: { status: 'cancelled' },
-      limit: 50, order: [['updatedAt', 'DESC']],
+    const { page = 1, limit = 20, status } = req.query;
+    const offset = (parseInt(page) - 1) * parseInt(limit);
+    const where = {};
+    
+    if (status && status !== 'all') {
+      where.status = status;
+    }
+    
+    // Support tickets = rides annulees + drivers suspended (a titre d'exemple)
+    const { count, rows } = await Ride.findAndCountAll({
+      where: { 
+        status: 'cancelled',
+        ...where
+      },
+      offset,
+      limit: parseInt(limit),
+      order: [['updatedAt', 'DESC']],
       include: [
         { model: User, as: 'passenger', attributes: ['id', 'name'] },
         { model: User, as: 'driver', attributes: ['id', 'name'] },
       ],
     });
-    const tickets = cancelledRides.map((r, i) => ({
+    
+    const tickets = rows.map((r, index) => ({
       id: r.id,
       userName: r.passenger?.name || 'N/A',
-      subject: `Course annulee #${r.id}`,
+      subject: `Course annulée #${r.id}`,
       status: 'open',
       createdAt: r.updatedAt || r.createdAt,
     }));
-    res.json({ success: true, data: tickets });
+    
+    res.json({ 
+      success: true, 
+      data: tickets, 
+      pagination: { 
+        page: parseInt(page), 
+        limit: parseInt(limit), 
+        total: count, 
+        totalPages: Math.ceil(count / parseInt(limit)) 
+      } 
+    });
   } catch (error) { next(error); }
 });
 

@@ -32,9 +32,9 @@ api.interceptors.response.use(
         api.defaults.headers.common.Authorization = `Bearer ${data.accessToken}`
         return api(originalRequest)
       } catch (err) {
-        // If refresh token fails, logout
-        const { logout } = useSession()
-        logout()
+        // If refresh token fails, logout - using direct localStorage access instead of hook
+        localStorage.removeItem('token')
+        localStorage.removeItem('refreshToken')
         window.location.href = '/login'
         return Promise.reject(err)
       }

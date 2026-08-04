@@ -1,0 +1,1 @@
+chmod +x /Users/shams/Desktop/taxilibre/run_it.sh && /Users/shams/Desktop/taxilibre/run_it.sh

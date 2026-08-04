@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { lazy, Suspense } from 'react';
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { Toaster } from 'react-hot-toast';
@@ -6,26 +6,27 @@ import { SocketProvider } from './contexts/SocketContext';
 import { AuthProvider } from './contexts/AuthContext';
 import Layout from './components/Layout';
 import ProtectedRoute from './components/ProtectedRoute';
+import Spinner from './components/Spinner';
 
-// Pages
-import Home from './pages/Home';
-import Login from './pages/Login';
-import Register from './pages/Register';
-import Dashboard from './pages/Dashboard';
-import BookRide from './pages/BookRide';
-import RideTracking from './pages/RideTracking';
-import RideHistory from './pages/RideHistory';
-import Payment from './pages/Payment';
-import Profile from './pages/Profile';
-import Notifications from './pages/Notifications';
+// Pages with lazy loading
+const Home = lazy(() => import('./pages/Home'));
+const Login = lazy(() => import('./pages/Login'));
+const Register = lazy(() => import('./pages/Register'));
+const Dashboard = lazy(() => import('./pages/Dashboard'));
+const BookRide = lazy(() => import('./pages/BookRide'));
+const RideTracking = lazy(() => import('./pages/RideTracking'));
+const RideHistory = lazy(() => import('./pages/RideHistory'));
+const Payment = lazy(() => import('./pages/Payment'));
+const Profile = lazy(() => import('./pages/Profile'));
+const Notifications = lazy(() => import('./pages/Notifications'));
 // New static pages
-import Help from './pages/Help';
-import Contact from './pages/Contact';
-import FAQ from './pages/FAQ';
-import Terms from './pages/Terms';
-import Privacy from './pages/Privacy';
-import Cookies from './pages/Cookies';
-import PaymentMethods from './pages/PaymentMethods';
+const Help = lazy(() => import('./pages/Help'));
+const Contact = lazy(() => import('./pages/Contact'));
+const FAQ = lazy(() => import('./pages/FAQ'));
+const Terms = lazy(() => import('./pages/Terms'));
+const Privacy = lazy(() => import('./pages/Privacy'));
+const Cookies = lazy(() => import('./pages/Cookies'));
+const PaymentMethods = lazy(() => import('./pages/PaymentMethods'));
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -43,59 +44,61 @@ function App() {
         <SocketProvider>
           <Router basename="/">
             <Layout>
-              <Routes>
-                {/* Public routes */}
-                <Route path="/" element={<Home />} />
-                <Route path="/login" element={<Login />} />
-                <Route path="/register" element={<Register />} />
+              <Suspense fallback={<Spinner />}>
+                <Routes>
+                  {/* Public routes */}
+                  <Route path="/" element={<Home />} />
+                  <Route path="/login" element={<Login />} />
+                  <Route path="/register" element={<Register />} />
 
-                {/* Static pages */}
-                <Route path="/help" element={<Help />} />
-                <Route path="/contact" element={<Contact />} />
-                <Route path="/faq" element={<FAQ />} />
-                <Route path="/terms" element={<Terms />} />
-                <Route path="/privacy" element={<Privacy />} />
-                <Route path="/cookies" element={<Cookies />} />
-                {/* Payment methods page */}
-                <Route path="/payment" element={<PaymentMethods />} />
+                  {/* Static pages */}
+                  <Route path="/help" element={<Help />} />
+                  <Route path="/contact" element={<Contact />} />
+                  <Route path="/faq" element={<FAQ />} />
+                  <Route path="/terms" element={<Terms />} />
+                  <Route path="/privacy" element={<Privacy />} />
+                  <Route path="/cookies" element={<Cookies />} />
+                  {/* Payment methods page */}
+                  <Route path="/payment" element={<PaymentMethods />} />
 
-                {/* Protected routes */}
-                <Route path="/dashboard" element={
-                  <ProtectedRoute>
-                    <Dashboard />
-                  </ProtectedRoute>
-                } />
-                <Route path="/book-ride" element={
-                  <ProtectedRoute>
-                    <BookRide />
-                  </ProtectedRoute>
-                } />
-                <Route path="/ride-tracking/:rideId" element={
-                  <ProtectedRoute>
-                    <RideTracking />
-                  </ProtectedRoute>
-                } />
-                <Route path="/ride-history" element={
-                  <ProtectedRoute>
-                    <RideHistory />
-                  </ProtectedRoute>
-                } />
-                <Route path="/payment/:rideId" element={
-                  <ProtectedRoute>
-                    <Payment />
-                  </ProtectedRoute>
-                } />
-                <Route path="/profile" element={
-                  <ProtectedRoute>
-                    <Profile />
-                  </ProtectedRoute>
-                } />
-                <Route path="/notifications" element={
-                  <ProtectedRoute>
-                    <Notifications />
-                  </ProtectedRoute>
-                } />
-              </Routes>
+                  {/* Protected routes */}
+                  <Route path="/dashboard" element={
+                    <ProtectedRoute>
+                      <Dashboard />
+                    </ProtectedRoute>
+                  } />
+                  <Route path="/book-ride" element={
+                    <ProtectedRoute>
+                      <BookRide />
+                    </ProtectedRoute>
+                  } />
+                  <Route path="/ride-tracking/:rideId" element={
+                    <ProtectedRoute>
+                      <RideTracking />
+                    </ProtectedRoute>
+                  } />
+                  <Route path="/ride-history" element={
+                    <ProtectedRoute>
+                      <RideHistory />
+                    </ProtectedRoute
+                  } />
+                  <Route path="/payment/:rideId" element={
+                    <ProtectedRoute>
+                      <Payment />
+                    </ProtectedRoute
+                  } />
+                  <Route path="/profile" element={
+                    <ProtectedRoute>
+                      <Profile />
+                    </ProtectedRoute
+                  } />
+                  <Route path="/notifications" element={
+                    <ProtectedRoute>
+                      <Notifications />
+                    </ProtectedRoute
+                  } />
+                </Routes>
+              </Suspense>
             </Layout>
             <Toaster
               position="top-right"

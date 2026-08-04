@@ -1,4 +1,5 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
+import * as SecureStore from 'expo-secure-store';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import axios from 'axios';
 import { API_BASE_URL } from '../config/api';
@@ -33,14 +34,46 @@ export const AuthProvider = ({ children }) => {
     checkAuth();
   }, []);
 
+  const storeAuthData = async (token, user) => {
+    try {
+      // Store sensitive data using SecureStore
+      await SecureStore.setItemAsync('taxilibre_token', token);
+      await SecureStore.setItemAsync('taxilibre_user', JSON.stringify(user));
+    } catch (error) {
+      console.error('Failed to store authentication data:', error);
+    }
+  };
+
+  const retrieveAuthData = async () => {
+    try {
+      // Retrieve sensitive data using SecureStore
+      const storedToken = await SecureStore.getItemAsync('taxilibre_token');
+      const storedUser = await SecureStore.getItemAsync('taxilibre_user');
+      return { token: storedToken, user: storedUser ? JSON.parse(storedUser) : null };
+    } catch (error) {
+      console.error('Failed to retrieve authentication data:', error);
+      return { token: null, user: null };
+    }
+  };
+
+  const removeAuthData = async () => {
+    try {
+      // Remove sensitive data using SecureStore
+      await SecureStore.deleteItemAsync('taxilibre_token');
+      await SecureStore.deleteItemAsync('taxilibre_user');
+    } catch (error) {
+      console.error('Failed to remove authentication data:', error);
+    }
+  };
+
   const checkAuth = async () => {
     try {
-      const storedToken = await AsyncStorage.getItem('taxilibre_token');
-      const storedUser = await AsyncStorage.getItem('taxilibre_user');
+      setLoading(true);
+      const { token: storedToken, user: storedUser } = await retrieveAuthData();
 
       if (storedToken && storedUser) {
         setToken(storedToken);
-        setUser(JSON.parse(storedUser));
+        setUser(storedUser);
         setIsAuthenticated(true);
         
         // Verify token is still valid
@@ -48,7 +81,8 @@ export const AuthProvider = ({ children }) => {
           const response = await axios.get(`${API_BASE_URL}/auth/profile`);
           if (response.data.success) {
             setUser(response.data.user);
-            await AsyncStorage.setItem('taxilibre_user', JSON.stringify(response.data.user));
+            // Update stored user with fresh data
+            await SecureStore.setItemAsync('taxilibre_user', JSON.stringify(response.data.user));
           } else {
             await logout();
           }
@@ -79,9 +113,8 @@ export const AuthProvider = ({ children }) => {
         setToken(newToken);
         setIsAuthenticated(true);
         
-        // Store in AsyncStorage
-        await AsyncStorage.setItem('taxilibre_token', newToken);
-        await AsyncStorage.setItem('taxilibre_user', JSON.stringify(userData));
+        // Store securely
+        await storeAuthData(newToken, userData);
         
         return { success: true };
       } else {
@@ -113,9 +146,8 @@ export const AuthProvider = ({ children }) => {
         setToken(newToken);
         setIsAuthenticated(true);
         
-        // Store in AsyncStorage
-        await AsyncStorage.setItem('taxilibre_token', newToken);
-        await AsyncStorage.setItem('taxilibre_user', JSON.stringify(newUser));
+        // Store securely
+        await storeAuthData(newToken, newUser);
         
         return { success: true };
       } else {
@@ -147,9 +179,8 @@ export const AuthProvider = ({ children }) => {
       setToken(null);
       setIsAuthenticated(false);
       
-      // Clear AsyncStorage
-      await AsyncStorage.removeItem('taxilibre_token');
-      await AsyncStorage.removeItem('taxilibre_user');
+      // Clear secure storage
+      await removeAuthData();
       
       // Clear axios headers
       delete axios.defaults.headers.common['Authorization'];
@@ -163,7 +194,8 @@ export const AuthProvider = ({ children }) => {
       if (response.data.success) {
         const updatedUser = response.data.user;
         setUser(updatedUser);
-        await AsyncStorage.setItem('taxilibre_user', JSON.stringify(updatedUser));
+        // Update secure storage
+        await SecureStore.setItemAsync('taxilibre_user', JSON.stringify(updatedUser));
         
         return { success: true };
       } else {
@@ -187,7 +219,8 @@ export const AuthProvider = ({ children }) => {
       if (response.data.success) {
         const { token: newToken } = response.data;
         setToken(newToken);
-        await AsyncStorage.setItem('taxilibre_token', newToken);
+        // Update secure storage
+        await SecureStore.setItemAsync('taxilibre_token', newToken);
         
         return { success: true };
       } else {

@@ -23,10 +23,22 @@ const RatingStars: React.FC<RatingStarsProps> = ({
     stars.push (
       <div
         key={i}
+        role="radio"
+        aria-checked={isFilled ? 'true' : 'false'}
+        aria-label={isFilled 
+          ? `${i} étoile${i > 1 ? 's' : ''}` 
+          : isHalf 
+            ? `${i - 0.5} étoile${i - 0.5 > 1 ? 's' : ''}` 
+            : `${i - 1} étoile${i - 1 > 1 ? 's' : ''}`}
+        tabIndex={readOnly ? -1 : 0}
+        onKeyDown={(e) => {
+          if (!readOnly && (e.key === 'Enter' || e.key === ' ')) {
+            e.preventDefault();
+            onRatingSelect(i);
+          }
+        }}
         onClick={() => !readOnly && onRatingSelect(i)}
-        onMouseEnter={() => !readOnly && onRatingSelect(i)}
-        onMouseLeave={() => !readOnly && onRatingSelect(rating)}
-        className="cursor-pointer inline-flex items-center"
+        className={`cursor-pointer inline-flex items-center ${!readOnly ? 'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500' : ''}`}
       >
         {isFilled ? (
           <StarFilled
@@ -50,7 +62,11 @@ const RatingStars: React.FC<RatingStarsProps> = ({
   }
 
   return (
-    <div className="flex items-center space-x-1">
+    <div 
+      className="flex items-center space-x-1"
+      role="radiogroup"
+      aria-label="Note du trajet"
+    >
       {stars}
     </div>
   );

@@ -6,6 +6,7 @@ require('dotenv').config({
   override: false 
 });
 const { logger } = require('../services/loggingService');
+const { getStore } = require('../utils/asyncStorage');
 
 const isProduction = process.env.NODE_ENV === 'production';
 const isTest = process.env.NODE_ENV === 'test';
@@ -56,7 +57,7 @@ const getDatabaseUrl = () => {
     return process.env.DATABASE_URL;
   }
 
-  // Priorité 2 : variables individuelles
+  // Priorité 2 : variables individuales
   const { DB_USER, DB_PASSWORD, DB_HOST, DB_PORT, DB_NAME } = process.env;
 
   if (!DB_USER || !DB_PASSWORD || !DB_HOST || !DB_PORT || !DB_NAME) {
@@ -70,10 +71,17 @@ const getDatabaseUrl = () => {
 // ─── Configuration SSL ────────────────────────────────────────────────────────
 const dialectOptions = isProduction
   ? {
-      ssl: {
-        require: true,
-        rejectUnauthorized: false,
-      },
+      // Check if we are connecting to a localhost or remote host
+      host: process.env.DB_HOST || '',
+      ssl:
+        process.env.DB_HOST === 'localhost' ||
+        process.env.DB_HOST === '127.0.0.1' ||
+        process.env.DB_HOST?.startsWith('::1')
+          ? false
+          : {
+              require: true,
+              rejectUnauthorized: false,
+            },
       connectTimeout: 10000,
     }
   : {
@@ -110,6 +118,37 @@ if (isTest) {
     pool: poolConfig,
     dialectOptions,
   });
+
+  // ─── Configuration des variables de session pour RLS ────────────────────────
+  // On utilise AsyncLocalStorage pour stocker l'utilisateur courant de la requête
+  // et on définit les variables de session PostgreSQL à chaque acquisition de connexion
+  if (sequelize.pool) {
+    sequelize.pool.on('acquire', (connection) => {
+      const store = getStore();
+      const userId = store?.userId ?? '';
+      const userRole = store?.userRole ?? '';
+
+      // Utilisation de requêtes paramétrées pour éviter l'injection SQL
+      connection.query(
+        'SELECT set_config($1, $2, true)',
+        ['app.user_id', userId],
+        (err) => {
+          if (err) {
+            logger.error('Erreur lors de la définition de app.user_id:', err);
+          }
+        }
+      );
+      connection.query(
+        'SELECT set_config($1, $2, true)',
+        ['app.user_role', userRole],
+        (err) => {
+          if (err) {
+            logger.error('Erreur lors de la définition de app.user_role:', err);
+          }
+        }
+      );
+    });
+  }
 }
 
 // ─── Test de connexion ────────────────────────────────────────────────────────

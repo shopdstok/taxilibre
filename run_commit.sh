@@ -1,0 +1,1 @@
+chmod +x /Users/shams/Desktop/taxilibre/commit_and_push.sh && /Users/shams/Desktop/taxilibre/commit_and_push.sh

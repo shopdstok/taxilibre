@@ -19,21 +19,30 @@ const TipSelection: React.FC<TipSelectionProps> = ({
           {selectedTip > 0 ? `${selectedTip}€` : 'Aucun'}
         </span>
       </div>
-      <div className="flex space-x-2">
-        {tipOptions.map(tip => (
-          <label key={tip} className="flex items-center cursor-pointer">
-            <input
-              type="radio"
-              checked={selectedTip === tip}
-              onChange={() => onTipChange(tip)}
-              className="h-4 w-4 text-indigo-600 focus:ring-indigo-500 border-gray-300 rounded"
-            />
-            <span className="ml-2 text-sm font-medium text-gray-700">
-              {tip === 0 ? 'Aucun' : `${tip}€`}
-            </span>
+      <fieldset
+        className="flex space-x-2"
+        role="radiogroup"
+        aria-label="Montant du pourboire"
+      >
+      {tipOptions.map(tip => (
+        <div key={tip} className="flex items-center">
+          <input
+            type="radio"
+            id={`tip-${tip}`}
+            value={tip}
+            checked={selectedTip === tip}
+            onChange={() => onTipChange(tip)}
+            className="h-4 w-4 text-indigo-600 focus:ring-indigo-500 border-gray-300 rounded"
+            aria-checked={selectedTip === tip}
+          />
+          <label
+            htmlFor={`tip-${tip}`}
+            className="ml-2 text-sm font-medium text-gray-700 cursor-pointer"
+          >
+            {tip === 0 ? 'Aucun' : `${tip}€`}
           </label>
-        ))}
-      </div>
+          </label>))}
+      </fieldset>
     </div>
   );
 };

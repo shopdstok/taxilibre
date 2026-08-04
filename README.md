@@ -8,9 +8,9 @@ TaxiLibre est une plateforme de réservation de taxi complète et professionnell
 
 | Application | URL |
 |---|---|
-| 👥 Passagers | https://passenger-web-sigma.vercel.app/ |
-| 🚗 Conducteurs | https://driver-web-alpha.vercel.app/ |
-| 📊 Admin Dashboard | https://admin-dashboard-sandy-theta.vercel.app/ |
+| 👥 Passagers | https://passenger.taxilibre.com |
+| 🚗 Conducteurs | https://driver.taxilibre.com |
+| 📊 Admin Dashboard | https://admin.taxilibre.com |
 
 ## 🏗️ Architecture
 
@@ -25,7 +25,7 @@ taxilibre/
 ├── backend/                    # API Backend (Node.js + Express)
 ├── gateway-nginx/              # Nginx Gateway pour production
 ├── shared/                     # Code partagé entre les applications
-└── infrastructure/            # Configuration infrastructure
+└── infrastructure/            # Configuration infrastructure (Terraform/AWS)
 ```
 
 ### Tech Stack
@@ -43,8 +43,8 @@ taxilibre/
 **Backend:**
 - Node.js 18+
 - Express.js 4.18.2
-- PostgreSQL (Supabase)
-- Redis (Caching)
+- PostgreSQL (AWS RDS)
+- Redis (AWS ElastiCache)
 - Socket.io 4.7.2 (Real-time)
 - JWT Authentication
 - Stripe 14.9.0 (Payments)
@@ -52,9 +52,14 @@ taxilibre/
 - Firebase Admin 10.3.0 (Push Notifications)
 
 **DevOps:**
-- Docker & Docker Compose
-- Vercel (Frontend Deployment)
+- Docker & Docker Compose (local/dev)
+- AWS ECS Fargate (Production)
+- AWS RDS PostgreSQL
+- AWS ElastiCache Redis
+- AWS Application Load Balancer (ALB)
+- AWS Certificate Manager (SSL)
 - GitHub Actions (CI/CD)
+- Terraform (Infrastructure as Code)
 
 ## 🚀 Démarrage Rapide
 
@@ -62,14 +67,14 @@ taxilibre/
 - Node.js 18+
 - npm 9+
 - Docker & Docker Compose
-- PostgreSQL (Supabase)
-- Redis
+- AWS Account (for production)
+- Terraform (for infrastructure)
 
 ### Installation
 
 ```bash
 # Cloner le repository
-git clone https://github.com/shopdstok/taxilibre2.git
+git clone https://github.com/shopdstok/taxilibre.git
 cd taxilibre
 
 # Installer les dépendances
@@ -109,7 +114,7 @@ npm run dev:driver      # Conducteurs sur http://localhost:3001
 npm run dev:admin       # Admin sur http://localhost:3002
 ```
 
-### Lancement avec Docker
+### Lancement avec Docker (pour développement local)
 
 ```bash
 # Lancer tous les services
@@ -197,30 +202,58 @@ npm run build:admin
 npm run build:backend
 ```
 
-## 🚢 Déploiement
+## 🚢 Déploiement en Production (AWS ECS)
 
-### Vercel (Frontend)
-```bash
-# Déployer sur Vercel
-vercel --prod
-```
+### Prérequis
+- AWS CLI configuré
+- Terraform installé
+- Accès à un compte AWS avec les permissions nécessaires
 
-### Docker (Backend)
-```bash
-# Build l'image Docker
-docker build -t taxilibre-backend ./backend
+### Étapes de déploiement
 
-# Run le container
-docker run -p 3003:3003 taxilibre-backend
-```
+1. **Construire les images Docker**
+   ```bash
+   # Construire l'image du backend
+   docker build -t taxilibre-backend ./backend
+   
+   # Construire les images du frontend (nginx pour servir les fichiers statiques)
+   cd apps/passenger-web && docker build -t taxilibre-passenger-web .
+   cd ../driver-web && docker build -t taxilibre-driver-web .
+   cd ../admin-dashboard && docker build -t taxilibre-admin-dashboard .
+   cd ../../
+   ```
 
-Voir [DEPLOYMENT_GUIDE.md](./DEPLOYMENT_GUIDE.md) pour plus de détails.
+2. **Pousser les images vers Amazon ECR** (via les scripts GitHub Actions ou manuellement)
+   - Les workflows GitHub Actions s'occupent de construire et pousser les images vers ECR lors du push sur la branche `main`.
+
+3. **Déployer l'infrastructure avec Terraform**
+   ```bash
+   cd infrastructure
+   terraform init
+   terraform apply
+   ```
+
+4. **Mettre à jour les services ECS avec les nouvelles images**
+   ```bash
+   aws ecs update-service --cluster taxilibre-cluster --service taxilibre-backend-service --force-new-deployment
+   # Répéter pour chaque service frontend
+   ```
+
+### GitHub Actions (CI/CD)
+Le workflow `.github/workflows/deploy-production.yml` s'occupe de :
+- Construire les images Docker
+- Les pousser vers Amazon ECR
+- Mettre à jour l'infrastructure Terraform (si nécessaire)
+- Déployer les nouvelles versions sur les services ECS
+
+### Variables d'environnement en production
+Les variables d'environnement sont stockées dans AWS Systems Manager Parameter Store ou AWS Secrets Manager et injectées dans les tâches ECS.
 
 ## 📚 Documentation
 
 - [API Documentation](./docs/API.md)
 - [Deployment Guide](./DEPLOYMENT_GUIDE.md)
-- [Vercel Deployment Status](./VERCEL_DEPLOYMENT_STATUS.md)
+- [Infrastructure as Code (Terraform)](/infrastructure/README.md)
 
 ## 🔐 Sécurité
 
@@ -231,6 +264,10 @@ Voir [DEPLOYMENT_GUIDE.md](./DEPLOYMENT_GUIDE.md) pour plus de détails.
 - Helmet.js security headers
 - Input validation (Joi)
 - SQL injection prevention (Sequelize)
+- HTTPS via ALB + ACM
+- Secrets management via AWS Secrets Manager/SSM
+- VPC isolé avec sous-réseaux privés et publics
+- Groups de sécurité restreints
 
 ## 🤝 Contribution
 
@@ -255,4 +292,41 @@ Ce projet est sous licence MIT. Voir le fichier LICENSE pour plus de détails.
 
 ---
 
-**Note:** Ce projet est en développement actif. De nouvelles fonctionnalités sont ajoutées régulièrement.
+**Note:** Ce projet est en développement actif. De nouvelles fonctionnalités sont ajoutées régulièrement.## Deployment Strategy
+
+This application is deployed using AWS ECS Fargate for container orchestration. The infrastructure is managed through Terraform files located in the `infrastructure/` directory.
+
+### Infrastructure Components
+
+- **AWS ECS Fargate**: Container orchestration service
+- **AWS RDS PostgreSQL**: Primary database for application data
+- **AWS ElastiCache Redis**: Caching layer for improved performance
+- **AWS S3**: Storage for media assets and backups
+- **AWS CloudWatch**: Monitoring and logging
+- **AWS IAM**: Role-based access control
+- **AWS ALB**: Load balancing for distributing traffic
+
+### Deployment Process
+
+1. Code changes are pushed to the main branch
+2. GitHub Actions workflow (`.github/workflows/deploy-production.yml`) triggers
+3. Terraform provisions/updates AWS infrastructure
+4. Docker images are built and pushed to Amazon ECR
+5. ECS tasks are updated with new container images
+6. Health checks verify successful deployment
+
+### Environment Variables
+
+All configuration is managed through environment variables:
+- Database connection strings
+- API keys and secrets
+- Feature flags
+- Service endpoints
+
+For local development, copy `.env.example` to `.env` and adjust values as needed.
+
+## Development Setup
+
+1. Install dependencies: `npm install`
+2. Set up environment variables: `cp .env.example .env`
+3. Start the infrastructure/parameter>

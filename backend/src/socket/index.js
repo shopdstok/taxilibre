@@ -1,48 +1,84 @@
 const { Server } = require('socket.io')
 const { createAdapter } = require('@socket.io/redis-adapter')
-const { createClient } = require('redis')
+const Redis = require('ioredis')
 const { logger } = require('../services/loggingService')
 let io
 let pubClient
 let subClient
 
 function initSocket (server) {
+  // Initialize Socket.io server
   io = new Server(server, {
     cors: {
-      origin: process.env.FRONTEND_URL || '*',
-      methods: ['GET', 'POST']
+      origin: process.env.CORS_ORIGINS?.split(',') || ['http://localhost:3000'],
+      methods: ['GET', 'POST'],
+      credentials: true
     }
   })
 
-  // Redis adapter is OPTIONAL (horizontal scaling). Disabled by default to avoid
-  // crash-loops when no Redis is available. Enable with REDIS_ENABLE=true.
-  if (process.env.REDIS_ENABLE === 'true') {
-    try {
-      const redisHost = process.env.REDIS_HOST || 'localhost'
-      const redisPort = parseInt(process.env.REDIS_PORT, 10) || 6379
-      const clientOpts = process.env.REDIS_URL
-        ? { url: process.env.REDIS_URL }
-        : { socket: { host: redisHost, port: redisPort } }
+  // Initialize Redis adapter for horizontal scaling
+  // Always attempt to use Redis for production scalability
+  try {
+    // Create Redis clients using ioredis as recommended
+    pubClient = new Redis({
+      host: process.env.REDIS_HOST || 'localhost',
+      port: parseInt(process.env.REDIS_PORT) || 6379,
+      password: process.env.REDIS_PASSWORD || undefined,
+      redisOptions: {
+        // Enable keeping alive
+        keepAlive: 30000,
+        // Reconnect strategy
+        retries: 10
+      }
+    })
+    
+    subClient = pubClient.duplicate()
 
-      pubClient = createClient(clientOpts)
-      subClient = pubClient.duplicate()
-      pubClient.on('error', (err) => logger.warn('Redis pub client error:', err.message))
-      subClient.on('error', (err) => logger.warn('Redis sub client error:', err.message))
+    // Handle Redis connection events
+    pubClient.on('error', (err) => {
+      logger.warn('Redis pub client error:', err.message)
+    })
+    
+    subClient.on('error', (err) => {
+      logger.warn('Redis sub client error:', err.message)
+    })
 
-      // Best-effort connect: le serveur reste en ligne même si Redis est down.
-      Promise.all([pubClient.connect(), subClient.connect()])
-        .then(() => {
-          io.adapter(createAdapter(pubClient, subClient))
-          logger.info('✅ Socket.IO Redis adapter activé')
+    pubClient.on('connect', () => {
+      logger.info('Redis pub client connected')
+    })
+    
+    subClient.on('connect', () => {
+      logger.info('Redis sub client connected')
+    })
+
+    // Connect clients
+    Promise.all([pubClient.connect(), subClient.connect()])
+      .then(() => {
+        // Apply Redis adapter
+        io.adapter(createAdapter(pubClient, subClient))
+        logger.info('✅ Socket.IO Redis adapter activated for horizontal scaling')
+      })
+      .catch((err) => {
+        logger.warn('⚠️  Redis connection failed, falling back to in-memory adapter:', err.message)
+        // Fallback to in-memory adapter if Redis connection fails
+        io = new Server(server, {
+          cors: {
+            origin: process.env.CORS_ORIGINS?.split(',') || ['http://localhost:3000'],
+            methods: ['GET', 'POST'],
+            credentials: true
+          }
         })
-        .catch((err) => {
-          logger.warn('⚠️  Redis adapter désactivé (Redis non joignable) :', err.message)
-        })
-    } catch (err) {
-      logger.warn('⚠️  Redis adapter non initialisé :', err.message)
-    }
-  } else {
-    logger.info('ℹ️  Socket.IO sans Redis adapter (REDIS_ENABLE !== true)')
+      })
+  } catch (err) {
+    logger.warn('⚠️  Failed to initialize Redis clients, using in-memory adapter:', err.message)
+    // Fallback to in-memory adapter
+    io = new Server(server, {
+      cors: {
+        origin: process.env.CORS_ORIGINS?.split(',') || ['http://localhost:3000'],
+        methods: ['GET', 'POST'],
+        credentials: true
+      }
+    })
   }
 
   // Initialize socket service with IO instance
@@ -85,12 +121,12 @@ function initSocket (server) {
   io.on('connection', (socket) => {
 
     // Join user-specific room
-    socket.join(`user:${socket.userId}`)
+    socket.join('user:' + socket.userId)
 
     // Join role-based rooms
     if (socket.userRole === 'driver') {
       socket.join('drivers')
-      socket.join(`driver:${socket.userId}`)
+      socket.join('driver:' + socket.userId)
 
       // Handle driver location updates
       socket.on('driver:location_update', async (data) => {
@@ -99,11 +135,12 @@ function initSocket (server) {
           const matchingService = require('../services/matchingService')
           try {
             await matchingService.updateDriverLocation(socket.userId, parseFloat(latitude), parseFloat(longitude))
-
+            
             // Note: The matching service handles Redis GEO updates for matching logic
             // Real-time location updates to passengers are handled by the matching service
             // through Socket.io notifications when needed (e.g., during active rides)
           } catch (error) {
+            logger.warn('Failed to update driver location:', error.message)
           }
         }
       })
@@ -116,6 +153,7 @@ function initSocket (server) {
           try {
             await matchingService.handleAcceptRide({ rideId, driverId: socket.driverId })
           } catch (error) {
+            logger.warn('Failed to accept ride:', error.message)
             socket.emit('ride:error', { message: 'Failed to accept ride', rideId })
           }
         }
@@ -124,7 +162,7 @@ function initSocket (server) {
 
     if (socket.userRole === 'passenger') {
       socket.join('passengers')
-      socket.join(`passenger:${socket.userId}`)
+      socket.join('passenger:' + socket.userId)
 
       // Handle passenger location updates
       socket.on('passenger:location_update', async (data) => {
@@ -137,6 +175,7 @@ function initSocket (server) {
               lng: parseFloat(longitude)
             })
           } catch (error) {
+            logger.warn('Failed to update passenger location:', error.message)
           }
         }
       })
@@ -161,11 +200,11 @@ function initSocket (server) {
 
     // Ride-specific events
     socket.on('join:ride', (rideId) => {
-      socket.join(`ride:${rideId}`)
+      socket.join('ride:' + rideId)
     })
 
     socket.on('leave:ride', (rideId) => {
-      socket.leave(`ride:${rideId}`)
+      socket.leave('ride:' + rideId)
     })
 
     // Chat messages
@@ -175,7 +214,7 @@ function initSocket (server) {
 
       // Save message to database (optional)
       // Broadcast to ride room
-      io.to(`ride:${rideId}`).emit('chat:message', {
+      io.to('ride:' + rideId).emit('chat:message', {
         userId: socket.userId,
         userName: socket.user.name,
         message,
@@ -185,6 +224,7 @@ function initSocket (server) {
 
     // Handle disconnection
     socket.on('disconnect', (reason) => {
+      logger.info('Client disconnected:', socket.id, reason)
 
       // If driver, update status to offline if not in a ride
       if (socket.userRole === 'driver') {
@@ -193,6 +233,7 @@ function initSocket (server) {
         // In production, you'd check active rides first
         const geolocationService = require('../services/geolocationService')
         geolocationService.stopTrackingDriver(socket.driverId).catch(err => {
+          logger.warn('Failed to stop tracking driver on disconnect:', err.message)
         })
       }
     })

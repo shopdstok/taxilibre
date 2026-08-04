@@ -1,4 +1,3 @@
-
 services:
 
   # Backend API
@@ -23,21 +22,25 @@ services:
       - /app/node_modules
 
 
-  # PostgreSQL Database
+  # PostgreSQL Database with PostGIS
   postgres:
     container_name: taxilibre-postgres
-    image: postgres:15-alpine
+    image: postgis/postgis:15-3.3
     restart: unless-stopped
     environment:
       POSTGRES_USER: ${DB_USER:-taxilibre}
       POSTGRES_PASSWORD: ${DB_PASSWORD:-password}
       POSTGRES_DB: ${DB_NAME:-taxilibre}
     volumes:
-      - postgres_data:/var/lib/postgresql/data
+        - postgres_data:/var/lib/postgresql/data
+        - ./database/init.sql:/docker-entrypoint-initdb.d/init.sql
     networks:
-      - taxilibre-network
-    ports:
-      - "5432:5432"
+        - taxilibre-network
+    healthcheck:
+        test: ["CMD-SHELL", "pg_isready -U taxilibre"]
+        interval: 10s
+        timeout: 5s
+        retries: 5
 
 
   # Redis Cache / Real-time
@@ -47,57 +50,60 @@ services:
     restart: unless-stopped
     command: redis-server /usr/local/etc/redis/redis.conf
     volumes:
-      - redis_data:/data
-      - ./docker/redis/redis.conf:/usr/local/etc/redis/redis.conf:ro
+        - redis_data:/data
+        - ./docker/redis/redis.conf:/usr/local/etc/redis/redis.conf:ro
     networks:
-      - taxilibre-network
-    ports:
-      - "6379:6379"
+        - taxilibre-network
+    healthcheck:
+        test: ["CMD", "redis-cli", "ping"]
+        interval: 10s
+        timeout: 5s
+        retries: 5
 
 
   # Passenger Web
   passenger-web:
     container_name: taxilibre-passenger-web
     build:
-      context: ./apps/passenger-web
-      dockerfile: Dockerfile
+        context: ./apps/passenger-web
+        dockerfile: Dockerfile
     restart: unless-stopped
     environment:
-      VITE_API_URL: http://localhost/api
+        VITE_API_URL: http://localhost/api
     depends_on:
-      - backend
+        - backend
     networks:
-      - taxilibre-network
+        - taxilibre-network
 
 
   # Driver Web
   driver-web:
     container_name: taxilibre-driver-web
     build:
-      context: ./apps/driver-web
-      dockerfile: Dockerfile
+        context: ./apps/driver-web
+        dockerfile: Dockerfile
     restart: unless-stopped
     environment:
-      VITE_API_URL: http://localhost/api
+        VITE_API_URL: http://localhost/api
     depends_on:
-      - backend
+        - backend
     networks:
-      - taxilibre-network
+        - taxilibre-network
 
 
   # Admin Dashboard
   admin-dashboard:
     container_name: taxilibre-admin-dashboard
     build:
-      context: ./apps/admin-dashboard
-      dockerfile: Dockerfile
+        context: ./apps/admin-dashboard
+        dockerfile: Dockerfile
     restart: unless-stopped
     environment:
-      VITE_API_URL: http://localhost/api
+        VITE_API_URL: http://localhost/api
     depends_on:
-      - backend
+        - backend
     networks:
-      - taxilibre-network
+        - taxilibre-network
 
 
   # Nginx Gateway
@@ -111,7 +117,7 @@ services:
       - driver-web
       - admin-dashboard
     ports:
-      - "80:80"
+        - "80:80"
     volumes:
       - ./gateway-nginx/nginx.conf:/etc/nginx/nginx.conf:ro
     networks:
