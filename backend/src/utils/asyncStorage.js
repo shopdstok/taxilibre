@@ -1,6 +1,6 @@
-const { AsyncLocalStorage } = require('async_hooks');
+const { AsyncLocalStorage } = require('async_hooks')
 
-const asyncLocalStorage = new AsyncLocalStorage();
+const asyncLocalStorage = new AsyncLocalStorage()
 
 /**
  * Exécute une fonction avec un magasin donné
@@ -10,17 +10,17 @@ const asyncLocalStorage = new AsyncLocalStorage();
  */
 const run = (store, fn) => {
   return asyncLocalStorage.run(store, () => {
-    return fn();
-  });
-};
+    return fn()
+  })
+}
 
 /**
  * Obtient le magasin actuel
  * @returns {Object|null} Le magasin actuel ou undefined
  */
 const getStore = () => {
-  return asyncLocalStorage.getStore();
-};
+  return asyncLocalStorage.getStore()
+}
 
 /**
  * Lie une fonction au magasin actuel
@@ -28,7 +28,7 @@ const getStore = () => {
  * @returns {Function} La fonction liée
  */
 const bind = (fn) => {
-  return asyncLocalStorage.bind(fn);
-};
+  return asyncLocalStorage.bind(fn)
+}
 
-module.exports = { run, getStore, bind };
+module.exports = { run, getStore, bind }

@@ -8,7 +8,7 @@ const { logger } = require('../services/loggingService')
  * Create payment intent for a ride
  */
 const createPaymentIntent = async (req, res, next) => {
-  logger.debug('Payment Controller: createPaymentIntent called', { reqBody: req.body, userId: req.userId });
+  logger.debug('Payment Controller: createPaymentIntent called', { reqBody: req.body, userId: req.userId })
   try {
     const { rideId, amount, currency = 'eur' } = req.body
 

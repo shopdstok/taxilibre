@@ -51,7 +51,6 @@ class SocketService {
         }
       })
     })
-
   }
 
   /**
@@ -175,12 +174,12 @@ class SocketService {
     }
 
     const eventMap = {
-      'accepted': 'ride_accepted',
-      'started': 'ride_started',
-      'arriving': 'driver_arriving',
-      'arrived': 'driver_arrived',
-      'completed': 'ride_completed',
-      'cancelled': 'ride_cancelled'
+      accepted: 'ride_accepted',
+      started: 'ride_started',
+      arriving: 'driver_arriving',
+      arrived: 'driver_arrived',
+      completed: 'ride_completed',
+      cancelled: 'ride_cancelled'
     }
     const eventName = eventMap[status] || ('ride:status:' + status)
 

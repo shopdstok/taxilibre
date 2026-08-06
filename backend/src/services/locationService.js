@@ -1,331 +1,182 @@
-const axios = require('axios')
+const { distanceMatrix, geocode } = require('../config/googleMaps')
+const { logger } = require('./loggingService')
+const { etherscan, ethPriceUsd } = require('./etherscanService')
 
 /**
- * Location Service - Google Maps API Integration
+ * Location Service for handling geocoding, distance calculations, and ETA estimations
+ * Integrates with Google Maps Distance Matrix API and Ethereum gas price tracking
  */
 class LocationService {
-  constructor () {
-    this.googleMapsApiKey = process.env.GOOGLE_MAPS_API_KEY
-    this.baseURL = 'https://maps.googleapis.com/maps/api'
-  }
-
   /**
-   * Get address from coordinates (reverse geocoding)
+   * Get distance and duration between two points using Google Maps Distance Matrix API
+   * @param {Object} origin - { lat, lng }
+   * @param {Object} destination - { lat, lng }
+   * @returns {Promise<Object>} distance in meters, duration in seconds
    */
-  async getAddressFromCoords (lat, lng) {
+  async getDistanceMatrix (origin, destination) {
     try {
-      const response = await axios.get(`${this.baseURL}/geocode/json`, {
-        params: {
-          latlng: `${lat},${lng}`,
-          key: this.googleMapsApiKey
-        }
+      if (!origin || !destination) {
+        throw new Error('Origin and destination are required')
+      }
+
+      const response = await distanceMatrix({
+        origins: [`${origin.lat},${origin.lng}`],
+        destinations: [`${destination.lat},${destination.lng}`],
+        travelMode: 'DRIVING',
+        
+        avoidHighways: false,
+        avoidTolls: false
       })
 
-      if (response.data.status !== 'OK') {
-        throw new Error(`Geocoding failed: ${response.data.status}`)
+      if (response.rows[0].elements[0].status !== 'OK') {
+        throw new Error(`Distance Matrix API error: ${response.rows[0].elements[0].status}`)
       }
 
-      const result = response.data.results[0]
+      const element = response.rows[0].elements[0]
       return {
-        address: result.formatted_address,
-        components: result.address_components,
-        placeId: result.place_id
+        distance: element.distance.value, // in meters
+        duration: element.duration.value, // in seconds
+        status: element.status
       }
     } catch (error) {
-      throw new Error(`Failed to get address from coordinates: ${error.message}`)
+      logger.error('Error in getDistanceMatrix', { error, origin, destination })
+      throw error
     }
   }
 
   /**
-   * Get coordinates from address (geocoding)
+   * Get address from coordinates using Google Maps Geocoding API
+   * @param {Object} location - { lat, lng }
+   * @returns {Promise<string>} formatted address
    */
-  async getCoordsFromAddress (address) {
+  async getAddressFromCoordinates (location) {
     try {
-      const response = await axios.get(`${this.baseURL}/geocode/json`, {
-        params: {
-          address,
-          key: this.googleMapsApiKey
-        }
+      if (!location) {
+        throw new Error('Location is required')
+      }
+
+      const response = await geocode({
+        location: `${location.lat},${location.lng}`
       })
 
-      if (response.data.status !== 'OK') {
-        throw new Error(`Geocoding failed: ${response.data.status}`)
+      if (response.status !== 'OK') {
+        throw new Error(`Geocoding API error: ${response.status}`)
       }
 
-      const result = response.data.results[0]
-      const location = result.geometry.location
+      return response.results[0].formatted_address
+    } catch (error) {
+      logger.error('Error in getAddressFromCoordinates', { error, location })
+      throw error
+    }
+  }
+
+  /**
+   * Get coordinates from address using Google Maps Geocoding API
+   * @param {string} address
+   * @returns {Promise<Object>} { lat, lng }
+   */
+  async getCoordinatesFromAddress (address) {
+    try {
+      if (!address) {
+        throw new Error('Address is required')
+      }
+
+      const response = await geocode({ address })
+
+      if (response.status !== 'OK') {
+        throw new Error(`Geocoding API error: ${response.status}`)
+      }
+
+      const location = response.results[0].geometry.location
+      return {
+        lat: location.lat(),
+        lng: location.lng()
+      }
+    } catch (error) {
+      logger.error('Error in getCoordinatesFromAddress', { error, address })
+      throw error
+    }
+  }
+
+  /**
+   * Calculate estimated time of arrival based on distance and current traffic
+   * @param {Object} origin - { lat, lng }
+   * @param {Object} destination - { lat, lng }
+   * @returns {Promise<Object>} ETA in minutes and distance in km
+   */
+  async calculateETA (origin, destination) {
+    try {
+      const { distance, duration } = await this.getDistanceMatrix(origin, destination)
+      const distanceKm = distance / 1000
+      const etaMinutes = Math.ceil(duration / 60)
 
       return {
-        lat: location.lat,
-        lng: location.lng,
-        formattedAddress: result.formatted_address,
-        placeId: result.placeId
+        etaMinutes,
+        distanceKm: parseFloat(distanceKm.toFixed(1)),
+        durationSeconds: duration
       }
     } catch (error) {
-      throw new Error(`Failed to get coordinates from address: ${error.message}`)
+      logger.error('Error in calculateETA', { error, origin, destination })
+      throw error
     }
   }
 
   /**
-   * Autocomplete addresses
+   * Get current gas price from Ethereum blockchain (for pricing calculations if needed)
+   * @returns {Promise<Object>} gas price in Gwei and USD
    */
-  async autocompleteAddress (input, location = null, radius = null) {
+  async getGasPrice () {
     try {
-      const params = {
-        input,
-        key: this.googleMapsApiKey,
-        types: 'geocode|establishment'
-      }
-
-      if (location && radius) {
-        params.location = `${location.lat},${location.lng}`
-        params.radius = radius
-      }
-
-      const response = await axios.get(`${this.baseURL}/place/autocomplete/json`, { params })
-
-      if (response.data.status !== 'OK' && response.data.status !== 'ZERO_RESULTS') {
-        throw new Error(`Autocomplete failed: ${response.data.status}`)
-      }
-
-      return response.data.predictions.map(prediction => ({
-        description: prediction.description,
-        placeId: prediction.place_id,
-        terms: prediction.terms,
-        structured_formatting: prediction.structured_formatting
-      }))
-    } catch (error) {
-      throw new Error(`Failed to autocomplete address: ${error.message}`)
-    }
-  }
-
-  /**
-   * Get place details
-   */
-  async getPlaceDetails (placeId) {
-    try {
-      const response = await axios.get(`${this.baseURL}/place/details/json`, {
-        params: {
-          place_id: placeId,
-          key: this.googleMapsApiKey,
-          fields: 'geometry,formatted_address,address_components,name'
-        }
-      })
-
-      if (response.data.status !== 'OK') {
-        throw new Error(`Place details failed: ${response.data.status}`)
-      }
-
-      const result = response.data.result
-      return {
-        lat: result.geometry.location.lat,
-        lng: result.geometry.location.lng,
-        formattedAddress: result.formatted_address,
-        addressComponents: result.address_components,
-        name: result.name
-      }
-    } catch (error) {
-      throw new Error(`Failed to get place details: ${error.message}`)
-    }
-  }
-
-  /**
-   * Calculate distance between two points using PostGIS, with fallback to Haversine
-   */
-  async calculateDistance (lat1, lng1, lat2, lng2) {
-    try {
-      const { sequelize } = require('../config/database');
-      const sql = `
-        SELECT ST_DistanceSphere(
-          ST_MakePoint($1, $2)::geography,
-          ST_MakePoint($3, $4)::geography
-        ) AS distance
-      `;
-      const [results] = await sequelize.query(sql, {
-        bind: [lng1, lat1, lng2, lat2],
-        type: sequelize.QueryTypes.SELECT
-      });
-      const distanceMeters = parseFloat(results[0].distance);
-      return {
-        km: distanceMeters / 1000,
-        meters: distanceMeters,
-        miles: distanceMeters * 0.000621371
-      };
-    } catch (error) {
-      // Fallback to haversine
-      const R = 6371; // Earth's radius in km
-      const dLat = this.toRadians(lat2 - lat1);
-      const dLng = this.toRadians(lng2 - lng1);
-
-      const a =
-        Math.sin(dLat / 2) * Math.sin(dLat / 2) +
-        Math.cos(this.toRadians(lat1)) * Math.cos(this.toRadians(lat2)) *
-        Math.sin(dLng / 2) * Math.sin(dLng / 2);
-
-      const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-      const distance = R * c;
+      const gasWei = await etherscan.getGasPrice()
+      const gasGwei = Number(etherscan.utils.formatUnits(gasWei, 'gwei'))
+      const gasUsd = (gasWei * ethPriceUsd) / 1e18
 
       return {
-        km: distance,
-        meters: distance * 1000,
-        miles: distance * 0.621371
-      };
-    }
-  }
-
-  /**
-   * Get distance and duration using Google Maps Distance Matrix API
-   */
-  async getDistanceMatrix (origins, destinations, mode = 'driving') {
-    try {
-      const originStr = Array.isArray(origins)
-        ? origins.map(o => `${o.lat},${o.lng}`).join('|')
-        : `${origins.lat},${origins.lng}`
-
-      const destStr = Array.isArray(destinations)
-        ? destinations.map(d => `${d.lat},${d.lng}`).join('|')
-        : `${destinations.lat},${destinations.lng}`
-
-      const response = await axios.get(`${this.baseURL}/distancematrix/json`, {
-        params: {
-          origins: originStr,
-          destinations: destStr,
-          mode,
-          key: this.googleMapsApiKey
-        }
-      })
-
-      if (response.data.status !== 'OK') {
-        throw new Error(`Distance matrix failed: ${response.data.status}`)
+        gasGwei: parseFloat(gasGwei.toFixed(1)),
+        gasUsd: parseFloat(gasUsd.toFixed(2))
       }
-
-      return response.data.rows.map(row => ({
-        elements: row.elements.map(element => ({
-          distance: element.distance ? {
-            text: element.distance.text,
-            value: element.distance.value // in meters
-          } : null,
-          duration: element.duration ? {
-            text: element.duration.text,
-            value: element.duration.value // in seconds
-          } : null,
-          status: element.status
-        }))
-      }))
     } catch (error) {
-      throw new Error(`Failed to get distance matrix: ${error.message}`)
-    }
-  }
-
-  /**
-   * Get directions between two points
-   */
-  async getDirections (origin, destination, waypoints = [], mode = 'driving') {
-    try {
-      const originStr = `${origin.lat},${origin.lng}`
-      const destStr = `${destination.lat},${destination.lng}`
-
-      const waypointStr = waypoints.length > 0
-        ? waypoints.map(wp => `${wp.lat},${wp.lng}`).join('|')
-        : undefined
-
-      const response = await axios.get(`${this.baseURL}/directions/json`, {
-        params: {
-          origin: originStr,
-          destination: destStr,
-          waypoints: waypointStr,
-          mode,
-          key: this.googleMapsApiKey
-        }
-      })
-
-      if (response.data.status !== 'OK') {
-        throw new Error(`Directions failed: ${response.data.status}`)
-      }
-
-      const route = response.data.routes[0]
-      const leg = route.legs[0]
-
+      logger.error('Error in getGasPrice', { error })
+      // Return fallback values
       return {
-        distance: leg.distance,
-        duration: leg.duration,
-        startAddress: leg.start_address,
-        endAddress: leg.end_address,
-        polyline: route.overview_polyline.points,
-        steps: leg.steps.map(step => ({
-          distance: step.distance,
-          duration: step.duration,
-          instruction: step.html_instructions,
-          startLocation: step.start_location,
-          endLocation: step.end_location
-        }))
+        gasGwei: 20,
+        gasUsd: 0.50
       }
-    } catch (error) {
-      throw new Error(`Failed to get directions: ${error.message}`)
     }
   }
 
   /**
-   * Calculate polyline (encoded string for map display)
+   * Calculate surge pricing multiplier based on time of day and demand
+   * @param {Date} date - optional date, defaults to now
+   * @returns {number} multiplier (1.0 = no surge)
    */
-  calculatePolyline (points) {
-    // This would use Google's polyline encoding algorithm
-    // For now, return the points as-is
-    return points
-  }
+  getSurgeMultiplier (date = new Date()) {
+    const hour = date.getHours()
+    const dayOfWeek = date.getDay() // 0 = Sunday, 6 = Saturday
 
-  /**
-   * Estimate ETA based on distance and average speed
-   */
-  estimateETA (distanceKm, averageSpeedKmh = 40) {
-    const hours = distanceKm / averageSpeedKmh
-    const minutes = Math.round(hours * 60)
+    // Base multiplier
+    let multiplier = 1.0
 
-    return {
-      minutes,
-      text: `${minutes} min`,
-      hours: Math.floor(hours),
-      remainingMinutes: minutes % 60
-    }
-  }
-
-  /**
-   * Search for nearby places
-   */
-  async searchNearby (location, type, radius = 1000) {
-    try {
-      const response = await axios.get(`${this.baseURL}/place/nearbysearch/json`, {
-        params: {
-          location: `${location.lat},${location.lng}`,
-          radius,
-          type,
-          key: this.googleMapsApiKey
-        }
-      })
-
-      if (response.data.status !== 'OK' && response.data.status !== 'ZERO_RESULTS') {
-        throw new Error(`Nearby search failed: ${response.data.status}`)
+    // Weekday rush hours (7-9 AM, 4-7 PM)
+    if (dayOfWeek >= 1 && dayOfWeek <= 5) { // Monday to Friday
+      if ((hour >= 7 && hour <= 9) || (hour >= 16 && hour <= 19)) {
+        multiplier = 1.3
       }
-
-      return response.data.results.map(place => ({
-        placeId: place.place_id,
-        name: place.name,
-        vicinity: place.vicinity,
-        location: place.geometry.location,
-        rating: place.rating,
-        types: place.types
-      }))
-    } catch (error) {
-      throw new Error(`Failed to search nearby places: ${error.message}`)
     }
-  }
+    // Weekend evenings (Friday 6PM - Sunday 12AM)
+    else if ((dayOfWeek === 5 && hour >= 18) || // Friday evening
+             (dayOfWeek === 6) || // Saturday all day
+             (dayOfWeek === 0 && hour < 12)) { // Sunday morning
+      multiplier = 1.2
+    }
+    // Late night (12AM-5AM)
+    if (hour >= 0 && hour <= 5) {
+      multiplier = Math.max(multiplier, 1.1)
+    }
 
-  /**
-   * Helper: Convert degrees to radians
-   */
-  toRadians (degrees) {
-    return degrees * (Math.PI / 180)
+    return parseFloat(multiplier.toFixed(2))
   }
 }
 
 module.exports = new LocationService()
+

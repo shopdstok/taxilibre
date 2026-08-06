@@ -31,14 +31,14 @@ function initSocket (server) {
         retries: 10
       }
     })
-    
+
     subClient = pubClient.duplicate()
 
     // Handle Redis connection events
     pubClient.on('error', (err) => {
       logger.warn('Redis pub client error:', err.message)
     })
-    
+
     subClient.on('error', (err) => {
       logger.warn('Redis sub client error:', err.message)
     })
@@ -46,7 +46,7 @@ function initSocket (server) {
     pubClient.on('connect', () => {
       logger.info('Redis pub client connected')
     })
-    
+
     subClient.on('connect', () => {
       logger.info('Redis sub client connected')
     })
@@ -119,7 +119,6 @@ function initSocket (server) {
   })
 
   io.on('connection', (socket) => {
-
     // Join user-specific room
     socket.join('user:' + socket.userId)
 
@@ -135,7 +134,7 @@ function initSocket (server) {
           const matchingService = require('../services/matchingService')
           try {
             await matchingService.updateDriverLocation(socket.userId, parseFloat(latitude), parseFloat(longitude))
-            
+
             // Note: The matching service handles Redis GEO updates for matching logic
             // Real-time location updates to passengers are handled by the matching service
             // through Socket.io notifications when needed (e.g., during active rides)

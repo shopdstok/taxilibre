@@ -181,10 +181,4 @@ Review.beforeCreate(async (review) => {
   }
 })
 
-Review.beforeUpdate(async (review) => {
-  // Log moderation if review is being moderated
-  if (review.changed('moderatedAt') && review.moderatedAt) {
-  }
-})
-
 module.exports = Review

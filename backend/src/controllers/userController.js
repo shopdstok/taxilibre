@@ -296,7 +296,7 @@ const getRideHistory = async (req, res, next) => {
       offset: (parseInt(page) - 1) * parseInt(limit)
     })
 
-    res.json(successResponse({
+    res.json(sendSuccess({
       rides: rides.rows,
       pagination: {
         page: parseInt(page),
@@ -343,7 +343,7 @@ const searchUsers = async (req, res, next) => {
       offset: (parseInt(page) - 1) * parseInt(limit)
     })
 
-    res.json(successResponse({
+    res.json(sendSuccess({
       users: users.rows,
       pagination: {
         page: parseInt(page),

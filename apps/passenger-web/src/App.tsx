@@ -80,22 +80,22 @@ function App() {
                   <Route path="/ride-history" element={
                     <ProtectedRoute>
                       <RideHistory />
-                    </ProtectedRoute
+                    </ProtectedRoute>
                   } />
                   <Route path="/payment/:rideId" element={
                     <ProtectedRoute>
                       <Payment />
-                    </ProtectedRoute
+                    </ProtectedRoute>
                   } />
                   <Route path="/profile" element={
                     <ProtectedRoute>
                       <Profile />
-                    </ProtectedRoute
+                    </ProtectedRoute>
                   } />
                   <Route path="/notifications" element={
                     <ProtectedRoute>
                       <Notifications />
-                    </ProtectedRoute
+                    </ProtectedRoute>
                   } />
                 </Routes>
               </Suspense>

@@ -5,10 +5,10 @@ try {
 } catch (e) {
   const map = new Map()
   redis = {
-    async setex(key, expiry, value) {
-      map.set(key, {value, expires: Date.now() + (expiry * 1000)})
+    async setex (key, expiry, value) {
+      map.set(key, { value, expires: Date.now() + (expiry * 1000) })
     },
-    async get(key) {
+    async get (key) {
       const entry = map.get(key)
       if (!entry) return null
       // optional expiry check
@@ -18,7 +18,7 @@ try {
       }
       return entry.value
     },
-    async del(key) {
+    async del (key) {
       return map.delete(key) ? 1 : 0
     }
   }

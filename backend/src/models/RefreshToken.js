@@ -1,7 +1,7 @@
-'use strict';
+'use strict'
 
-const { DataTypes } = require('sequelize');
-const { sequelize } = require('../config/database');
+const { DataTypes } = require('sequelize')
+const { sequelize } = require('../config/database')
 
 const RefreshToken = sequelize.define('RefreshToken', {
   id: {
@@ -35,6 +35,6 @@ const RefreshToken = sequelize.define('RefreshToken', {
   timestamps: true,
   createdAt: 'created_at',
   updatedAt: false
-});
+})
 
-module.exports = RefreshToken;
+module.exports = RefreshToken

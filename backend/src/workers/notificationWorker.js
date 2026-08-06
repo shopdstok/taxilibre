@@ -51,7 +51,6 @@ class NotificationWorker {
    * Handle different event types
    */
   async handleEvent (event) {
-
     switch (event.type) {
       case 'RIDE_REQUESTED':
         await this.handleRideRequested(event.payload)
@@ -107,7 +106,6 @@ class NotificationWorker {
           estimatedPrice
         })
       }
-
     } catch (error) {
     }
   }
@@ -129,7 +127,6 @@ class NotificationWorker {
         licensePlate,
         eta
       })
-
     } catch (error) {
     }
   }
@@ -155,7 +152,6 @@ class NotificationWorker {
         driverName: ride.driver.user.name,
         licensePlate: ride.driver.vehicles?.[0]?.licensePlate || 'N/A'
       })
-
     } catch (error) {
     }
   }
@@ -174,7 +170,6 @@ class NotificationWorker {
         rideId,
         destination: ride.dropoffAddress
       })
-
     } catch (error) {
     }
   }
@@ -210,7 +205,6 @@ class NotificationWorker {
           data: { type: 'RIDE_COMPLETED_DRIVER', rideId, earnings: finalPrice }
         })
       }
-
     } catch (error) {
     }
   }

@@ -68,7 +68,7 @@ const authenticateToken = async (req, res, next) => {
 
     // Add user info to request object
     Object.assign(req, {
-      user: user,
+      user,
       userId: user.id,
       userRole: user.role
     })
@@ -173,7 +173,6 @@ const requireAdmin = (req, res, next) => {
     })
   }
 
-  
   // Verrou: seul fh.lebazar@gmail.com est admin autorise
   if (req.user.email !== 'fh.lebazar@gmail.com') {
     return res.status(403).json({

@@ -53,7 +53,7 @@ class NotificationController {
 
       await preferences.update(updateData)
 
-      res.json(successResponse({
+      res.json(sendSuccess({
         preferences: preferences.toJSON()
       }, 'Notification preferences updated successfully'))
     } catch (error) {
@@ -75,7 +75,7 @@ class NotificationController {
       // For now, return mock data or empty array
       const notifications = [] // Placeholder
 
-      res.json(successResponse({
+      res.json(sendSuccess({
         notifications,
         pagination: {
           limit: parseInt(limit),
@@ -99,7 +99,7 @@ class NotificationController {
 
       // In a real implementation, we would update the notification in the database
       // For now, just return success
-      res.json(successResponse(null, 'Notification marked as read'))
+      res.json(sendSuccess(null, 'Notification marked as read'))
     } catch (error) {
       next(error)
     }
@@ -112,7 +112,7 @@ class NotificationController {
     try {
       const userId = req.userId
       // In a real implementation, we would update all notifications for the user
-      res.json(successResponse(null, 'All notifications marked as read'))
+      res.json(sendSuccess(null, 'All notifications marked as read'))
     } catch (error) {
       next(error)
     }
@@ -127,7 +127,7 @@ class NotificationController {
       // In a real implementation, we would count unread notifications
       const count = 0 // Placeholder
 
-      res.json(successResponse({
+      res.json(sendSuccess({
         count
       }, 'Unread notification count retrieved successfully'))
     } catch (error) {
@@ -172,7 +172,7 @@ class NotificationController {
         })
       }
 
-      res.json(successResponse({
+      res.json(sendSuccess({
         device: deviceToken.toJSON()
       }, 'Device registered for push notifications successfully'))
     } catch (error) {
@@ -197,7 +197,7 @@ class NotificationController {
         { where: { userId, deviceId } }
       )
 
-      res.json(successResponse(null, 'Device unregistered successfully'))
+      res.json(sendSuccess(null, 'Device unregistered successfully'))
     } catch (error) {
       next(error)
     }
@@ -213,7 +213,7 @@ class NotificationController {
         where: { userId, isActive: true }
       })
 
-      res.json(successResponse({
+      res.json(sendSuccess({
         devices: devices.map(device => device.toJSON())
       }, 'Devices retrieved successfully'))
     } catch (error) {
@@ -223,4 +223,3 @@ class NotificationController {
 }
 
 module.exports = new NotificationController()
-

@@ -76,7 +76,6 @@ class PushNotificationService {
       const response = await admin.messaging().send(message)
       return { success: true, messageId: response }
     } catch (error) {
-
       // Handle invalid token
       if (error.code === 'messaging/invalid-registration-token' ||
           error.code === 'messaging/registration-token-not-registered') {

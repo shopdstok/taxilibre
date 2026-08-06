@@ -5,7 +5,7 @@ const pushNotificationService = require('./pushNotificationService')
 const { AuditLog } = require('../models')
 
 class NotificationService {
-  async sendNotification({ userId, type, title, message, data = {}, channels = ['push'] }) {
+  async sendNotification ({ userId, type, title, message, data = {}, channels = ['push'] }) {
     const results = { success: true, channels: {}, errors: [] }
     for (const channel of channels) {
       try {
@@ -31,19 +31,24 @@ class NotificationService {
     await AuditLog.create({ action: 'notification_sent', userId, details: { type, channels, success: results.success } }).catch(() => {})
     return results
   }
-  async notifyRideRequest({ driverId, ride }) {
+
+  async notifyRideRequest ({ driverId, ride }) {
     return this.sendNotification({ userId: driverId, type: 'ride_request', title: 'Nouvelle course', message: `Course de ${ride.pickupAddress} a ${ride.dropoffAddress}`, data: { rideId: ride.id }, channels: ['push', 'sms'] })
   }
-  async notifyRideAccepted({ passengerId, ride, driver }) {
+
+  async notifyRideAccepted ({ passengerId, ride, driver }) {
     return this.sendNotification({ userId: passengerId, type: 'ride_accepted', title: 'Chauffeur trouve', message: `${driver.name} arrive dans ${ride.eta} min`, data: { rideId: ride.id }, channels: ['push'] })
   }
-  async notifyRideCompleted({ passengerId, ride }) {
+
+  async notifyRideCompleted ({ passengerId, ride }) {
     return this.sendNotification({ userId: passengerId, type: 'ride_completed', title: 'Course terminee', message: `Votre course de ${ride.finalPrice}€ est terminee`, data: { rideId: ride.id }, channels: ['push', 'email'] })
   }
-  async notifyPaymentReceived({ driverId, amount }) {
+
+  async notifyPaymentReceived ({ driverId, amount }) {
     return this.sendNotification({ userId: driverId, type: 'payment_received', title: 'Paiement recu', message: `Vous avez recu ${amount}€`, channels: ['push', 'email'] })
   }
-  async sendBulkNotification({ userIds, title, message, channels = ['push'] }) {
+
+  async sendBulkNotification ({ userIds, title, message, channels = ['push'] }) {
     const results = { successCount: 0, failureCount: 0, total: userIds.length }
     for (const userId of userIds) {
       try {

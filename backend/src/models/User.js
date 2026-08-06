@@ -1,9 +1,9 @@
-'use strict';
+'use strict'
 
-const { DataTypes } = require('sequelize');
-const { sequelize } = require('../config/database');
-const bcrypt = require('bcryptjs');
-const crypto = require('crypto');
+const { DataTypes } = require('sequelize')
+const { sequelize } = require('../config/database')
+const bcrypt = require('bcryptjs')
+const crypto = require('crypto')
 
 const User = sequelize.define('User', {
   id: {
@@ -143,72 +143,72 @@ const User = sequelize.define('User', {
     { fields: ['role'] },
     { fields: ['is_active'] }
   ]
-});
+})
 
 // ─── Getter virtuel : .name retourne firstName + lastName ─────────────────────
 Object.defineProperty(User.prototype, 'name', {
-  get() {
-    return `${this.firstName || ''} ${this.lastName || ''}`.trim();
+  get () {
+    return `${this.firstName || ''} ${this.lastName || ''}`.trim()
   },
-  set(value) {
+  set (value) {
     if (value && typeof value === 'string') {
-      const parts = value.trim().split(' ');
-      this.setDataValue('firstName', parts[0] || '');
-      this.setDataValue('lastName', parts.slice(1).join(' ') || parts[0] || '');
+      const parts = value.trim().split(' ')
+      this.setDataValue('firstName', parts[0] || '')
+      this.setDataValue('lastName', parts.slice(1).join(' ') || parts[0] || '')
     }
   }
-});
+})
 
 // ─── toJSON : masquer les champs sensibles ────────────────────────────────────
 User.prototype.toJSON = function () {
-  const values = { ...this.get() };
+  const values = { ...this.get() }
 
-  delete values.password;
-  delete values.resetPasswordToken;
-  delete values.resetPasswordExpires;
+  delete values.password
+  delete values.resetPasswordToken
+  delete values.resetPasswordExpires
 
   // Ajouter name virtuel
-  values.name = `${values.firstName || ''} ${values.lastName || ''}`.trim();
+  values.name = `${values.firstName || ''} ${values.lastName || ''}`.trim()
 
-  return values;
-};
+  return values
+}
 
 // ─── comparePassword ──────────────────────────────────────────────────────────
 User.prototype.comparePassword = async function (candidatePassword) {
-  if (!this.password) return false;
-  return bcrypt.compare(candidatePassword, this.password);
-};
+  if (!this.password) return false
+  return bcrypt.compare(candidatePassword, this.password)
+}
 
 // ─── generatePasswordResetToken ───────────────────────────────────────────────
 User.prototype.generatePasswordResetToken = function () {
-  const resetToken = crypto.randomBytes(32).toString('hex');
+  const resetToken = crypto.randomBytes(32).toString('hex')
   this.resetPasswordToken = crypto
     .createHash('sha256')
     .update(resetToken)
-    .digest('hex');
-  this.resetPasswordExpires = new Date(Date.now() + 10 * 60 * 1000); // 10 min
-  return resetToken;
-};
+    .digest('hex')
+  this.resetPasswordExpires = new Date(Date.now() + 10 * 60 * 1000) // 10 min
+  return resetToken
+}
 
 // ─── Hook : hasher password avant création ────────────────────────────────────
 User.beforeCreate(async (user) => {
   if (user.password && !user.password.startsWith('$2')) {
-    user.password = await bcrypt.hash(user.password, 12);
+    user.password = await bcrypt.hash(user.password, 12)
   }
 
   // Si "name" passé directement (compatibilité seedAdmin)
   if (user.dataValues.name && !user.firstName) {
-    const parts = user.dataValues.name.trim().split(' ');
-    user.setDataValue('firstName', parts[0] || 'Admin');
-    user.setDataValue('lastName', parts.slice(1).join(' ') || 'TaxiLibre');
+    const parts = user.dataValues.name.trim().split(' ')
+    user.setDataValue('firstName', parts[0] || 'Admin')
+    user.setDataValue('lastName', parts.slice(1).join(' ') || 'TaxiLibre')
   }
-});
+})
 
 // ─── Hook : hasher password avant mise à jour ─────────────────────────────────
 User.beforeUpdate(async (user) => {
   if (user.changed('password') && user.password && !user.password.startsWith('$2')) {
-    user.password = await bcrypt.hash(user.password, 12);
+    user.password = await bcrypt.hash(user.password, 12)
   }
-});
+})
 
-module.exports = User;
+module.exports = User

@@ -115,7 +115,7 @@ const handleNotFound = (req, res) => {
  */
 const handleAsyncError = (error, req, res, next) => {
   // Log error details
-  logError(error, req);
+  logError(error, req)
 
   // Don't send error details in production
   if (process.env.NODE_ENV === 'production') {
@@ -123,7 +123,7 @@ const handleAsyncError = (error, req, res, next) => {
       success: false,
       message: 'Internal server error',
       error: 'INTERNAL_SERVER_ERROR'
-    });
+    })
   }
 
   // Send detailed error in development
@@ -134,14 +134,13 @@ const handleAsyncError = (error, req, res, next) => {
     stack: error.stack,
     url: req.originalUrl,
     method: req.method
-  });
+  })
 }
 
 /**
  * Handle database connection errors
  */
 const handleDatabaseError = (error, req, res, next) => {
-
   if (error.name === 'SequelizeConnectionError') {
     return res.status(503).json({
       success: false,
@@ -176,7 +175,6 @@ const handleDatabaseError = (error, req, res, next) => {
  * Handle authorization errors
  */
 const handleAuthError = (error, req, res, next) => {
-
   const authErrors = {
     INSUFFICIENT_PERMISSIONS: 'You do not have permission to perform this action',
     DRIVER_REQUIRED: 'Driver access is required for this action',
@@ -200,13 +198,13 @@ const handleAuthError = (error, req, res, next) => {
  * Handle rate limiting errors
  */
 const handleRateLimitError = (error, req, res, next) => {
-  logError(error, req);
+  logError(error, req)
   res.status(429).json({
     success: false,
     message: error.message || 'Too many requests',
     error: 'RATE_LIMIT_EXCEEDED',
     retryAfter: error.retryAfter
-  });
+  })
 }
 
 /**
@@ -232,12 +230,12 @@ const handleAppError = (error, req, res, next) => {
       message: error.message,
       error: error.errorType,
       details: error.details
-    });
+    })
   }
 
   // For non-operational errors, pass to next error handler
-  next(error);
-};
+  next(error)
+}
 
 /**
  * Log errors for monitoring
@@ -248,7 +246,7 @@ const logError = (error, req = null) => {
     stack: error.stack,
     timestamp: new Date().toISOString(),
     level: 'error'
-  };
+  }
 
   if (req) {
     logData.request = {
@@ -258,17 +256,17 @@ const logError = (error, req = null) => {
       userAgent: req.get('User-Agent'),
       user: req.user?.id,
       role: req.user?.role
-    };
+    }
   }
 
   // In production, send to logging service
   if (process.env.NODE_ENV === 'production') {
     // Would integrate with service like Winston, Loggly, etc.
-    logger.error(JSON.stringify(logData)); // fallback
+    logger.error(JSON.stringify(logData)) // fallback
   } else {
-    logger.error(JSON.stringify(logData));
+    logger.error(JSON.stringify(logData))
   }
-};
+}
 
 /**
  * Success response helper

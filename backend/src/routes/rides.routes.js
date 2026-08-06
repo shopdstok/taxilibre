@@ -1,11 +1,11 @@
-const express = require('express');
-const router = express.Router();
-const rideController = require('../controllers/rideController');
-const { authenticateToken, authorizeRoles } = require('../middleware/authMiddleware');
-const { validate, rideValidators } = require('../middleware/validation.middleware');
+const express = require('express')
+const router = express.Router()
+const rideController = require('../controllers/rideController')
+const { authenticateToken, authorizeRoles } = require('../middleware/authMiddleware')
+const { validate, rideValidators } = require('../middleware/validation.middleware')
 
 // Appliquer l'authentification à toutes les routes ci-dessous
-router.use(authenticateToken);
+router.use(authenticateToken)
 
 /**
  * @swagger
@@ -71,7 +71,7 @@ router.use(authenticateToken);
  *             schema:
  *               $ref: '#/components/schemas/ErrorResponse'
  */
-router.post('/', rideValidators.createRide, rideController.requestRide);
+router.post('/', rideValidators.createRide, rideController.requestRide)
 
 /**
  * @swagger
@@ -112,7 +112,7 @@ router.post('/', rideValidators.createRide, rideController.requestRide);
  *             schema:
  *               $ref: '#/components/schemas/ErrorResponse'
  */
-router.get('/', rideController.getUserRides);
+router.get('/', rideController.getUserRides)
 
 /**
  * @swagger
@@ -149,7 +149,7 @@ router.get('/', rideController.getUserRides);
  *             schema:
  *               $ref: '#/components/schemas/ErrorResponse'
  */
-router.get('/:id', rideController.getRide);
+router.get('/:id', rideController.getRide)
 
 /**
  * @swagger
@@ -205,39 +205,39 @@ router.get('/:id', rideController.getRide);
  *             schema:
  *               $ref: '#/components/schemas/ErrorResponse'
  */
-router.patch('/:id/status', rideController.updateRideStatus);
+router.patch('/:id/status', rideController.updateRideStatus)
 
 // Driver actions on rides
-router.post('/:id/accept', authorizeRoles('driver'), rideController.acceptRide);
-router.post('/:id/start', authorizeRoles('driver'), rideController.startRide);
-router.post('/:id/complete', authorizeRoles('driver'), rideController.completeRide);
+router.post('/:id/accept', authorizeRoles('driver'), rideController.acceptRide)
+router.post('/:id/start', authorizeRoles('driver'), rideController.startRide)
+router.post('/:id/complete', authorizeRoles('driver'), rideController.completeRide)
 
 // Cancel ride (passenger, driver, or admin)
-router.post('/cancel', rideController.cancelRide);
+router.post('/cancel', rideController.cancelRide)
 
 // Price estimation
-router.post('/estimate', rideController.estimateRide);
+router.post('/estimate', rideController.estimateRide)
 
 // Rating after ride
-router.post('/:rideId/rate', rideController.rateRide);
-router.post('/:rideId/report-issue', rideController.reportIssue);
+router.post('/:rideId/rate', rideController.rateRide)
+router.post('/:rideId/report-issue', rideController.reportIssue)
 
 // Scheduled rides
-router.post('/schedule', rideController.scheduleRide);
-router.get('/scheduled', rideController.getScheduledRides);
-router.post('/scheduled/:rideId/cancel', rideController.cancelScheduledRide);
+router.post('/schedule', rideController.scheduleRide)
+router.get('/scheduled', rideController.getScheduledRides)
+router.post('/scheduled/:rideId/cancel', rideController.cancelScheduledRide)
 
 // Driver-specific routes
-router.get('/driver/history', authorizeRoles('driver'), rideController.getDriverRideHistory);
-router.get('/driver/stats', authorizeRoles('driver'), rideController.getDriverStats);
+router.get('/driver/history', authorizeRoles('driver'), rideController.getDriverRideHistory)
+router.get('/driver/stats', authorizeRoles('driver'), rideController.getDriverStats)
 
 // Driver: get ride requests (open rides to accept)
-router.get('/requests', authorizeRoles('driver'), rideController.getUserRides);
+router.get('/requests', authorizeRoles('driver'), rideController.getUserRides)
 // Driver: get active ride
-router.get('/active', rideController.getUserRides);
+router.get('/active', rideController.getUserRides)
 // End ride (driver-web compatibility alias)
-router.post('/:id/end', authorizeRoles('driver'), rideController.completeRide);
+router.post('/:id/end', authorizeRoles('driver'), rideController.completeRide)
 // Cancel ride (driver-web compatibility alias)
-router.post('/:id/cancel', rideController.cancelRide);
+router.post('/:id/cancel', rideController.cancelRide)
 
-module.exports = router;
+module.exports = router

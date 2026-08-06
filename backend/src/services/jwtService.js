@@ -9,7 +9,7 @@ try {
     setex: async () => {}
   }
 }
-const refreshTokenService = require('./refreshTokenService');
+const refreshTokenService = require('./refreshTokenService')
 const { logger } = require('../services/loggingService')
 
 /**

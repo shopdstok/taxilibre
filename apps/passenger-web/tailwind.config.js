@@ -1,15 +1,1 @@
-/** @type {import('tailwindcss').Config} */
-export default {
-  content: [
-    "./index.html",
-    "./src/**/*.{js,ts,jsx,tsx}",
-    "../../shared/**/*.{js,ts,jsx,tsx}",
-  ],
-  theme: {
-    extend: {
-      // Add any passenger-web specific customizations here
-      // For now, we'll inherit everything from the shared config
-    },
-  },
-  plugins: [],
-};
+// Custom Tailwind CSS configuration for passenger web app\n/** @type {import('tailwindcss').Config} */\nexport default {\n  presets: [require('../../shared/tailwind.config.js')],\n  content: [\n    './src/**/*.{html,js,jsx,ts,tsx}',\n    './index.html'\n  ],\n  theme: {\n    extend: {}\n  },\n  plugins: [],\n}

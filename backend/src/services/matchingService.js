@@ -30,9 +30,7 @@ const MAX_ATTEMPTS = 3
 const INITIAL_SEARCH_RADIUS_M = 500
 
 class RideMatchingService {
-  constructor() {}
-
-  async handleCreateRide(pickup, destination, passengerId, rideOptions = {}) {
+  async handleCreateRide (pickup, destination, passengerId, rideOptions = {}) {
     const rideId = uuidv4()
 
     try {
@@ -64,7 +62,7 @@ class RideMatchingService {
     }
   }
 
-  async startMatchingProcess(rideId, pickup, passengerId) {
+  async startMatchingProcess (rideId, pickup, passengerId) {
     let attempt = 0
 
     const attemptMatch = async (currentRadiusM) => {
@@ -108,14 +106,14 @@ class RideMatchingService {
           try {
             await ride.update({ status: models.RideStatus.EXPIRED })
           } catch (updateErr) {
-            logger.warn(`Impossible de mettre a jour le trajet expire`, { rideId })
+            logger.warn('Impossible de mettre a jour le trajet expire', { rideId })
           }
           socketService.sendToUser(passengerId, 'ride:no_driver', { rideId, reason: 'timeout_after_max_attempts' })
         } catch (error) {
           logger.error('Erreur pendant verification timeout matching', { error, rideId })
         } finally {
           await Redis.del(`${REQUEST_TIMEOUT_KEY}${rideId}:timeout`)
-          }
+        }
 
         if (timeoutId) clearTimeout(timeoutId)
       }, MATCH_TIMEOUT_MS)
@@ -127,7 +125,7 @@ class RideMatchingService {
     return attemptMatch(INITIAL_SEARCH_RADIUS_M)
   }
 
-  async handleAcceptRide(data) {
+  async handleAcceptRide (data) {
     const { rideId, driverId } = data
     const startTime = Date.now()
 
@@ -140,8 +138,11 @@ class RideMatchingService {
 
       if (ride.status !== models.RideStatus.REQUESTED) {
         logger.warn("Tentative d'acceptation sur trajet non disponible", {
-          rideId, expectedStatus: models.RideStatus.REQUESTED,
-          actualStatus: ride.status, requestingDriver: driverId, currentDriver: ride.driverId
+          rideId,
+          expectedStatus: models.RideStatus.REQUESTED,
+          actualStatus: ride.status,
+          requestingDriver: driverId,
+          currentDriver: ride.driverId
         })
         socketService.sendToDriver(driverId, 'ride:already_taken', { rideId })
         return
@@ -164,8 +165,11 @@ class RideMatchingService {
       socketService.sendToDriver(driverId, 'ride_accepted', { ...matchData, passengerId: ride.passengerId })
 
       logger.info('Trajet matching reussi', {
-        rideId, driverId, passengerId: ride.passengerId,
-        durationMs: Date.now() - startTime, attempt: 1
+        rideId,
+        driverId,
+        passengerId: ride.passengerId,
+        durationMs: Date.now() - startTime,
+        attempt: 1
       })
 
       await Redis.del(`${REQUEST_TIMEOUT_KEY}${rideId}:timeout`)
@@ -180,7 +184,7 @@ class RideMatchingService {
     }
   }
 
-  async updateDriverLocation(driverId, lat, lng) {
+  async updateDriverLocation (driverId, lat, lng) {
     if (this.isValidCoordinate(lat, lng)) {
       await Redis.geoAdd(GEO_KEY, lng, lat, driverId)
       logger.debug('Position conducteur mise à jour', { driverId, lat, lng })
@@ -189,7 +193,7 @@ class RideMatchingService {
     }
   }
 
-  haversineDistance(lat1, lon1, lat2, lon2) {
+  haversineDistance (lat1, lon1, lat2, lon2) {
     const R = 6371
     const dLat = this.toRad(lat2 - lat1)
     const dLon = this.toRad(lon2 - lon1)
@@ -198,9 +202,9 @@ class RideMatchingService {
     return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a))
   }
 
-  toRad(degrees) { return degrees * Math.PI / 180 }
+  toRad (degrees) { return degrees * Math.PI / 180 }
 
-  isValidCoordinate(lat, lng) { return lat >= -90 && lat <= 90 && lng >= -180 && lng <= 180 }
+  isValidCoordinate (lat, lng) { return lat >= -90 && lat <= 90 && lng >= -180 && lng <= 180 }
 }
 
 module.exports = new RideMatchingService()

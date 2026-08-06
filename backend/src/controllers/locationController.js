@@ -1,7 +1,7 @@
 const locationService = require('../services/locationService')
 const geolocationService = require('../services/geolocationService')
-const { sendSuccess, sendError } = require('../utils/response');
-const AppError = require('../middleware/errorMiddleware').AppError;
+const { sendSuccess, sendError } = require('../utils/response')
+const AppError = require('../middleware/errorMiddleware').AppError
 
 /**
  * Get address from coordinates

@@ -19,27 +19,23 @@ logger.add(new winston.transports.Console({
   format: winston.format.combine(winston.format.colorize(), logFormat)
 }))
 if (process.env.NODE_ENV !== 'production' && !process.env.VERCEL) {
-  try {
-    logger.add(new winston.transports.File({
-      filename: path.join(__dirname, '../../logs/error.log'),
-      level: 'error'
-    }))
-    logger.add(new winston.transports.File({
-      filename: path.join(__dirname, '../../logs/combined.log')
-    }))
-  } catch (error) {
-    logger.warn('Could not create log file transports')
-  }
+  logger.add(new winston.transports.File({
+    filename: path.join(__dirname, '../../logs/error.log'),
+    level: 'error'
+  }))
+  logger.add(new winston.transports.File({
+    filename: path.join(__dirname, '../../logs/combined.log')
+  }))
 }
-class QueryLogger { static logQuery(i) { logger.debug('Query', { model: i.constructor.name }) } }
-class PerformanceMonitor { static async measure(n, f) { const s = process.hrtime.bigint(); try { const r = await f(); const d = Number(process.hrtime.bigint() - s) / 1000000; logger.info(`Perf: ${n}`, { durationMs: d }); return r } catch (e) { throw e } } }
+class QueryLogger { static logQuery (i) { logger.debug('Query', { model: i.constructor.name }) } }
+class PerformanceMonitor { static async measure (n, f) { const s = process.hrtime.bigint(); const r = await f(); const d = Number(process.hrtime.bigint() - s) / 1000000; logger.info(`Perf: ${n}`, { durationMs: d }); return r } }
 const requestLogger = (req, res, next) => { const s = process.hrtime.bigint(); logger.info('Incoming', { method: req.method, url: req.originalUrl }); res.on('finish', () => { logger.info('Outgoing', { method: req.method, url: req.originalUrl, statusCode: res.statusCode }) }); next() }
 const errorLogger = (err, req, res, next) => { logger.error('App error', { error: err.message }); next(err) }
 class BusinessEventLogger {
-  static userRegistered(u) { logger.info('user_registered', { userId: u.id }) }
-  static rideRequested(r, u) { logger.info('ride_requested', { rideId: r.id }) }
-  static rideCompleted(r) { logger.info('ride_completed', { rideId: r.id }) }
-  static paymentProcessed(p, r) { logger.info('payment_processed', { paymentId: p.id }) }
-  static driverStatusChanged(d, o, n) { logger.info('driver_status_changed', { driverId: d.id }) }
+  static userRegistered (u) { logger.info('user_registered', { userId: u.id }) }
+  static rideRequested (r, u) { logger.info('ride_requested', { rideId: r.id }) }
+  static rideCompleted (r) { logger.info('ride_completed', { rideId: r.id }) }
+  static paymentProcessed (p, r) { logger.info('payment_processed', { paymentId: p.id }) }
+  static driverStatusChanged (d, o, n) { logger.info('driver_status_changed', { driverId: d.id }) }
 }
 module.exports = { logger, QueryLogger, PerformanceMonitor, requestLogger, errorLogger, BusinessEventLogger }

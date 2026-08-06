@@ -69,7 +69,6 @@ class EventBus {
       const event = JSON.parse(message)
       handler(event)
     })
-
   }
 
   /**

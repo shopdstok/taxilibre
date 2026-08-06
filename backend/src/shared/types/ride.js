@@ -9,6 +9,6 @@ const RideStatus = {
   CANCELLED: 'cancelled',
   NO_DRIVER_AVAILABLE: 'no_driver_available',
   EXPIRED: 'expired'
-};
+}
 
-module.exports = { RideStatus };
+module.exports = { RideStatus }

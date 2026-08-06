@@ -1,22 +1,22 @@
-const AWS = require('aws-sdk');
+const AWS = require('aws-sdk')
 const secretsManager = new AWS.SecretsManager({
   region: process.env.AWS_REGION || 'eu-west-1'
-});
+})
 
-let cachedSecrets = null;
+let cachedSecrets = null
 
-async function getSecrets() {
-  if (cachedSecrets) return cachedSecrets;
+async function getSecrets () {
+  if (cachedSecrets) return cachedSecrets
 
   try {
     const response = await secretsManager.getSecretValue({
       SecretId: process.env.SECRET_NAME || ('taxilaire-' + (process.env.NODE_ENV || 'dev') + '-secrets')
-    }).promise();
+    }).promise()
 
-    cachedSecrets = JSON.parse(response.SecretString);
-    return cachedSecrets;
+    cachedSecrets = JSON.parse(response.SecretString)
+    return cachedSecrets
   } catch (error) {
-    console.error('Error fetching secrets:', error);
+    console.error('Error fetching secrets:', error)
     // Fallback to env vars for local development
     return {
       DB_HOST: process.env.DB_HOST,
@@ -31,8 +31,8 @@ async function getSecrets() {
       TWILIO_ACCOUNT_SID: process.env.TWILIO_ACCOUNT_SID,
       TWILIO_AUTH_TOKEN: process.env.TWILIO_AUTH_TOKEN,
       FIREBASE_SERVICE_ACCOUNT: process.env.FIREBASE_SERVICE_ACCOUNT
-    };
+    }
   }
 }
 
-module.exports = { getSecrets };
+module.exports = { getSecrets }

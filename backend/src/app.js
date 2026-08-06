@@ -6,26 +6,26 @@ const { generalLimiter, authLimiter, sensitiveLimiter, userLimiter } = require('
 const { errorHandler } = require('./middleware/errorMiddleware')
 const swaggerUi = require('swagger-ui-express')
 const swaggerSpec = require('./config/swagger')
-const { logger } = require("./services/loggingService")
+const { logger } = require('./services/loggingService')
 const { run } = require('./utils/asyncStorage')
 
 //
 // Para ignorar Redis (no utilizado)
 //
 process.on('uncaughtException', (err) => {
-    if (err.code === 'ECONNREFUSED' && err.address === '127.0.0.1' && err.port === 6379) {
-        logger.warn('Redis ignorado (no utilizado)')
-        return
-    }
-    logger.error('Error no manejado:', err)
+  if (err.code === 'ECONNREFUSED' && err.address === '127.0.0.1' && err.port === 6379) {
+    logger.warn('Redis ignorado (no utilizado)')
+    return
+  }
+  logger.error('Error no manejado:', err)
 })
 
 process.on('unhandledRejection', (reason) => {
-    if (reason.code === 'ECONNREFUSED' && reason.address === '127.0.0.1' && reason.port === 6379) {
-        logger.warn('Redis ignorado (no utilizado)')
-        return
-    }
-    logger.error('Rechazo no manejado:', reason)
+  if (reason.code === 'ECONNREFUSED' && reason.address === '127.0.0.1' && reason.port === 6379) {
+    logger.warn('Redis ignorado (no utilizado)')
+    return
+  }
+  logger.error('Rechazo no manejado:', reason)
 })
 
 const app = express()
@@ -34,7 +34,7 @@ const app = express()
 app.use((req, res, next) => {
   const store = {
     userId: req.user?.id ?? '',
-    userRole: req.user?.role ?? '',
+    userRole: req.user?.role ?? ''
   }
   return run(store, () => {
     next()
@@ -47,7 +47,7 @@ app.use(helmet({
     defaultSrc: ["'self'"],
     styleSrc: ["'self'", "'unsafe-inline'"],
     scriptSrc: ["'self'"],
-    imgSrc: ["'self'", "data:", "https:"]
+    imgSrc: ["'self'", 'data:', 'https:']
   }
 }))
 
@@ -144,7 +144,7 @@ const notificationRoutes = require('./routes/notificationRoutes')
 const adminRoutes = require('./routes/adminRoutes')
 const locationRoutes = require('./routes/locationRoutes')
 const oauthRoutes = require('./routes/oauthRoutes')
-const monitoringRoutes = require('./routes/monitoring');
+const monitoringRoutes = require('./routes/monitoring')
 const socketService = require('./services/socketService')
 
 // Rutas API
@@ -157,7 +157,7 @@ app.use('/api/v1/notifications', notificationRoutes)
 app.use('/api/v1/admin', adminRoutes)
 app.use('/api/v1/location', locationRoutes)
 app.use('/api/v1/oauth', oauthRoutes)
-app.use('/api', monitoringRoutes);
+app.use('/api', monitoringRoutes)
 
 app.get('/', (req, res) => {
   res.json({

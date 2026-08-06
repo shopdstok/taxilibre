@@ -86,14 +86,13 @@ class PriceEstimationService {
     // Base multiplier
     let multiplier = 1.0
 
-    // Peak hours (7-9 AM, 5-8 PM) on weekdays
+    // Peak hours (7-9 AM, 5-8 PM) on weekails
     if (dayOfWeek >= 1 && dayOfWeek <= 5) { // Monday to Friday
+      // Weekend evenings
       if ((hour >= 7 && hour <= 9) || (hour >= 17 && hour <= 20)) {
         multiplier = 1.2
       }
-    }
-    // Weekend evenings
-    else if (dayOfWeek === 0 || dayOfWeek === 6) { // Sunday or Saturday
+    } else if (dayOfWeek === 0 || dayOfWeek === 6) { // Sunday or Saturday
       if (hour >= 18 && hour <= 23) {
         multiplier = 1.3
       }
