@@ -21,9 +21,13 @@
     "docker:up": "docker-compose up -d",
     "docker:down": "docker-compose down",
     "migrate": "cd backend && npm run migrate",
-    "seed": "cd backend && npm run seed"
+    "seed": "cd backend && npm run seed",
+    "test:e2e": "playwright test",
+    "test:e2e:headed": "playwright test --headed",
+    "test:e2e:debug": "playwright test --debug"
   },
   "devDependencies": {
+    "@playwright/test": "^1.62.1",
     "concurrently": "^8.2.2"
   },
   "dependencies": {

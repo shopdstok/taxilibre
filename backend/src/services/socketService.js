@@ -1,4 +1,5 @@
 const { logger } = require('./loggingService')
+const { RideStatus } = require('../models')
 
 /**
  * Socket service for managing real-time connections and events
@@ -160,8 +161,38 @@ class SocketService {
     const ride = this.activeRides.get(rideId)
     if (!ride) {
       if (this.io) {
-        const eventName = ('ride_' + status).replace(/_/g, '_')
-        this.io.to('ride:' + rideId).emit('ride_' + status, { rideId, ...data })
+        // Map status to event name
+        let eventName
+        switch (status) {
+          case RideStatus.PENDING:
+            eventName = 'ride:pending'
+            break
+          case RideStatus.DRIVER_ASSIGNED:
+            eventName = 'ride:driver_assigned'
+            break
+          case RideStatus.DRIVER_ARRIVED:
+            eventName = 'ride:driver_arrived'
+            break
+          case RideStatus.IN_PROGRESS:
+            eventName = 'ride:started'
+            break
+          case RideStatus.COMPLETED:
+            eventName = 'ride:completed'
+            break
+          case RideStatus.CANCELLED_BY_PASSENGER:
+            eventName = 'ride:cancelled_by_passenger'
+            break
+          case RideStatus.CANCELLED_BY_DRIVER:
+            eventName = 'ride:cancelled_by_driver'
+            break
+          case RideStatus.NO_DRIVER_FOUND:
+            eventName = 'ride:no_driver_found'
+            break
+          default:
+            eventName = `ride:${status.toLowerCase()}`
+        }
+        
+        this.io.to('ride:' + rideId).emit(eventName, { rideId, ...data })
       }
       return
     }
@@ -174,14 +205,14 @@ class SocketService {
     }
 
     const eventMap = {
-      accepted: 'ride_accepted',
-      started: 'ride_started',
-      arriving: 'driver_arriving',
-      arrived: 'driver_arrived',
-      completed: 'ride_completed',
-      cancelled: 'ride_cancelled'
+      [RideStatus.DRIVER_ASSIGNED]: 'ride:driver_assigned',
+      [RideStatus.DRIVER_ARRIVED]: 'ride:driver_arrived',
+      [RideStatus.IN_PROGRESS]: 'ride:started',
+      [RideStatus.COMPLETED]: 'ride:completed',
+      [RideStatus.CANCELLED_BY_PASSENGER]: 'ride:cancelled_by_passenger',
+      [RideStatus.CANCELLED_BY_DRIVER]: 'ride:cancelled_by_driver'
     }
-    const eventName = eventMap[status] || ('ride:status:' + status)
+    const eventName = eventMap[status] || `ride:${status.toLowerCase().replace(/_/g, ':')}`
 
     this.sendToUser(ride.passengerId, eventName, updateData)
     if (ride.driverId) {

@@ -1,4 +1,4 @@
-const { User, Driver } = require('../models')
+const { User, Driver, Ride, PaymentMethod } = require('../models')
 const { sendSuccess, sendError } = require('../utils/response')
 const bcrypt = require('bcryptjs')
 const { Op } = require('sequelize')
@@ -27,7 +27,7 @@ const getProfile = async (req, res, next) => {
   }
 }
 
-/**
+/*
  * Update user profile
  */
 const updateProfile = async (req, res, next) => {
@@ -131,9 +131,6 @@ const getStatistics = async (req, res, next) => {
 
     if (userRole === 'passenger') {
       // Passenger statistics
-      const { Ride } = require('../models')
-      const { Op } = require('sequelize')
-
       const totalRides = await Ride.count({
         where: { passengerId: userId }
       })
@@ -217,6 +214,116 @@ const updateNotificationPreferences = async (req, res, next) => {
     sendSuccess(res, {
       user: user.toJSON()
     }, 'Notification preferences updated successfully')
+  } catch (error) {
+    next(error)
+  }
+}
+
+/**
+ * Get user payment methods
+ */
+const getPaymentMethods = async (req, res, next) => {
+  try {
+    const userId = req.userId
+
+    const paymentMethods = await PaymentMethod.findAll({
+      where: { userId },
+      order: [['createdAt', 'DESC']]
+    })
+
+    sendSuccess(res, {
+      paymentMethods: paymentMethods.map(pm => pm.toJSON())
+    }, 'Payment methods retrieved successfully')
+  } catch (error) {
+    next(error)
+  }
+}
+
+/**
+ * Add payment method
+ */
+const addPaymentMethod = async (req, res, next) => {
+  try {
+    const userId = req.userId
+    const {
+      type,
+      provider,
+      lastFour,
+      expiryMonth,
+      expiryYear,
+      isDefault = false
+    } = req.body
+
+    // Validate required fields
+    if (!type || !provider || !lastFour) {
+      throw new AppError('Type, provider, and last four digits are required', 400, 'MISSING_FIELDS')
+    }
+
+    // Validate type
+    const validTypes = ['card', 'bank_account', 'paypal', 'apple_pay', 'google_pay']
+    if (!validTypes.includes(type)) {
+      throw new AppError('Invalid payment method type', 400, 'INVALID_PAYMENT_TYPE')
+    }
+
+    // If setting as default, unset other default payment methods
+    if (isDefault) {
+      await PaymentMethod.update(
+        { isDefault: false },
+        { where: { userId, isDefault: true } }
+      )
+    }
+
+    // Create payment method
+    const paymentMethod = await PaymentMethod.create({
+      userId,
+      type,
+      provider,
+      lastFour,
+      expiryMonth: expiryMonth || null,
+      expiryYear: expiryYear || null,
+      isDefault
+    })
+
+    sendSuccess(res, {
+      paymentMethod: paymentMethod.toJSON()
+    }, 'Payment method added successfully', 201)
+  } catch (error) {
+    next(error)
+  }
+}
+
+/**
+ * Remove payment method
+ */
+const removePaymentMethod = async (req, res, next) => {
+  try {
+    const { paymentMethodId } = req.params
+    const userId = req.userId
+
+    const paymentMethod = await PaymentMethod.findOne({
+      where: { id: paymentMethodId, userId }
+    })
+
+    if (!paymentMethod) {
+      throw new AppError('Payment method not found', 404, 'PAYMENT_METHOD_NOT_FOUND')
+    }
+
+    // If deleting the default payment method, set another as default if exists
+    if (paymentMethod.isDefault) {
+      const anotherPaymentMethod = await PaymentMethod.findOne({
+        where: { userId, isDefault: false, id: { [Op.ne]: paymentMethodId } }
+      })
+      
+      if (anotherPaymentMethod) {
+        await anotherPaymentMethod.update({ isDefault: true })
+      }
+    }
+
+    await paymentMethod.destroy()
+
+    sendSuccess(res, {
+      paymentMethodId
+    }, 'Payment method removed successfully')
   } catch (error) {
     next(error)
   }
@@ -364,6 +471,9 @@ module.exports = {
   deleteAccount,
   getStatistics,
   updateNotificationPreferences,
+  getPaymentMethods,
+  addPaymentMethod,
+  removePaymentMethod,
   uploadAvatar,
   getRideHistory,
   searchUsers

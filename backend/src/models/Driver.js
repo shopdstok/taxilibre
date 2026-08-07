@@ -1,5 +1,8 @@
-const { DataTypes } = require('sequelize')
-const { sequelize } = require('../config/database')
+// Enhanced Driver Model - Matches Specifications
+'use strict';
+
+const { DataTypes, Op } = require('sequelize');
+const { sequelize } = require('../config/database');
 
 const Driver = sequelize.define('Driver', {
   id: {
@@ -20,24 +23,51 @@ const Driver = sequelize.define('Driver', {
     onDelete: 'CASCADE'
   },
   status: {
-    type: DataTypes.ENUM('offline', 'online', 'busy', 'inactive', 'suspended'),
+    type: DataTypes.ENUM('OFFLINE', 'AVAILABLE', 'BUSY', 'ON_RIDE'),
     allowNull: false,
-    defaultValue: 'offline'
+    defaultValue: 'OFFLINE'
   },
-  verificationStatus: {
-    type: DataTypes.ENUM('pending', 'approved', 'rejected', 'document_required'),
-    allowNull: false,
-    defaultValue: 'pending',
-    field: 'verification_status'
+  // Real-time location (updated frequently)
+  currentLat: {
+    type: DataTypes.DECIMAL(10, 8),
+    allowNull: true,
+    field: 'current_lat'
   },
+  currentLng: {
+    type: DataTypes.DECIMAL(11, 8),
+    allowNull: true,
+    field: 'current_lng'
+  },
+  heading: {
+    type: DataTypes.INTEGER,
+    allowNull: true,
+    comment: 'Heading in degrees (0-360)'
+  },
+  speed: {
+    type: DataTypes.FLOAT,
+    allowNull: true,
+    comment: 'Speed in km/h'
+  },
+  locationUpdatedAt: {
+    type: DataTypes.DATE,
+    allowNull: true,
+    field: 'location_updated_at'
+  },
+  // Metrics
   rating: {
     type: DataTypes.DECIMAL(3, 2),
     allowNull: false,
-    defaultValue: 0.00,
+    defaultValue: 5.00,
     validate: {
       min: 0,
       max: 5
     }
+  },
+  ratingCount: {
+    type: DataTypes.INTEGER,
+    allowNull: false,
+    defaultValue: 0,
+    field: 'rating_count'
   },
   totalRides: {
     type: DataTypes.INTEGER,
@@ -45,162 +75,155 @@ const Driver = sequelize.define('Driver', {
     defaultValue: 0,
     field: 'total_rides'
   },
-  totalEarnings: {
+  completionRate: {
+    type: DataTypes.FLOAT,
+    allowNull: false,
+    defaultValue: 1.0,
+    validate: {
+      min: 0,
+      max: 1
+    },
+    field: 'completion_rate'
+  },
+  acceptanceRate: {
+    type: DataTypes.FLOAT,
+    allowNull: false,
+    defaultValue: 1.0,
+    validate: {
+      min: 0,
+      max: 1
+    },
+    field: 'acceptance_rate'
+  },
+  responseTimeMs: {
+    type: DataTypes.INTEGER,
+    allowNull: false,
+    defaultValue: 0,
+    comment: 'Average response time to ride requests in milliseconds',
+    field: 'response_time_ms'
+  },
+  // Verification
+  isVerified: {
+    type: DataTypes.BOOLEAN,
+    allowNull: false,
+    defaultValue: false,
+    field: 'is_verified'
+  },
+  verifiedAt: {
+    type: DataTypes.DATE,
+    allowNull: true,
+    field: 'verified_at'
+  },
+  verificationStatus: {
+    type: DataTypes.ENUM('PENDING', 'APPROVED', 'REJECTED'),
+    allowNull: false,
+    defaultValue: 'PENDING'
+  },
+  // Finances
+  walletBalance: {
     type: DataTypes.DECIMAL(10, 2),
+    allowNull: false,
+    defaultValue: 0.00,
+    field: 'wallet_balance'
+  },
+  stripeConnectId: {
+    type: DataTypes.STRING(255),
+    allowNull: true,
+    field: 'stripe_connect_id'
+  },
+  payoutMethod: {
+    type: DataTypes.ENUM('DAILY', 'WEEKLY', 'MONTHLY'),
+    allowNull: false,
+    defaultValue: 'WEEKLY'
+  },
+  // Earnings tracking
+  totalEarnings: {
+    type: DataTypes.DECIMAL(12, 2),
     allowNull: false,
     defaultValue: 0.00,
     field: 'total_earnings'
   },
-  currentLatitude: {
-    type: DataTypes.DECIMAL(10, 8),
-    allowNull: true,
-    field: 'current_latitude',
-    validate: {
-      min: -90,
-      max: 90
-    }
-  },
-  currentLongitude: {
-    type: DataTypes.DECIMAL(11, 8),
-    allowNull: true,
-    field: 'current_longitude',
-    validate: {
-      min: -180,
-      max: 180
-    }
-  },
-  licenseNumber: {
-    type: DataTypes.STRING,
-    allowNull: true,
-    field: 'license_number'
-  },
-  licenseExpiry: {
-    type: DataTypes.DATEONLY,
-    allowNull: true,
-    field: 'license_expiry'
-  },
-  insuranceNumber: {
-    type: DataTypes.STRING,
-    allowNull: true,
-    field: 'insurance_number'
-  },
-  insuranceExpiry: {
-    type: DataTypes.DATEONLY,
-    allowNull: true,
-    field: 'insurance_expiry'
-  },
-  bankAccountNumber: {
-    type: DataTypes.STRING,
-    allowNull: true,
-    field: 'bank_account_number'
-  },
-  bankRoutingNumber: {
-    type: DataTypes.STRING,
-    allowNull: true,
-    field: 'bank_routing_number'
-  },
-  isBackgroundCheckPassed: {
-    type: DataTypes.BOOLEAN,
+  weeklyEarnings: {
+    type: DataTypes.DECIMAL(10, 2),
     allowNull: false,
-    defaultValue: false,
-    field: 'is_background_check_passed'
+    defaultValue: 0.00,
+    field: 'weekly_earnings'
   },
-  rejectionReason: {
-    type: DataTypes.TEXT,
-    allowNull: true,
-    field: 'rejection_reason'
-  },
-  approvedAt: {
+  createdAt: {
     type: DataTypes.DATE,
-    allowNull: true,
-    field: 'approved_at'
-  },
-  lastLocationUpdate: {
-    type: DataTypes.DATE,
-    allowNull: true,
-    field: 'last_location_update'
-  },
-  lastStatusUpdate: {
-    type: DataTypes.DATE,
-    allowNull: true,
-    field: 'last_status_update'
-  },
-  maxConcurrentRides: {
-    type: DataTypes.INTEGER,
     allowNull: false,
-    defaultValue: 1,
-    field: 'max_concurrent_rides',
-    validate: {
-      min: 1,
-      max: 5
-    }
+    default: DataTypes.NOW,
+    field: 'created_at'
+  },
+  updatedAt: {
+    type: DataTypes.DATE,
+    allowNull: false,
+    default: DataTypes.NOW,
+    field: 'updated_at'
   }
 }, {
   tableName: 'drivers',
   timestamps: true,
+  underscored: true,
   createdAt: 'created_at',
   updatedAt: 'updated_at',
   indexes: [
-    {
-      unique: true,
-      fields: ['user_id']
-    },
-    {
-      fields: ['status']
-    },
-    {
-      fields: ['verification_status']
-    },
-    {
-      fields: ['current_latitude', 'current_longitude']
-    },
-    {
-      fields: ['rating']
-    }
+    { unique: true, fields: ['userId'] },
+    { fields: ['status'] },
+    { fields: ['currentLat', 'currentLng'], name: 'driver_location_idx' },
+    { fields: ['isVerified'] },
+    { fields: ['verificationStatus'] },
+    { fields: ['stripeConnectId'] }
   ]
-})
+});
 
 // Instance methods
 Driver.prototype.toJSON = function () {
-  const values = Object.assign({}, this.get())
+  const values = Object.assign({}, this.get());
+  return values;
+};
 
-  // Remove sensitive banking information for non-admin responses
-  if (values.bankAccountNumber) {
-    values.bankAccountNumber = values.bankAccountNumber.replace(/.(?=.{4})/, '****')
-  }
+// Update completion rate
+Driver.prototype.updateCompletionRate = async function () {
+  const { Ride } = require('../models');
+  const completedRides = await Ride.count({
+    where: {
+      driverId: this.id,
+      status: 'COMPLETED'
+    }
+  });
+  
+ const totalRides = await Ride.count({
+   where: {
+     driverId: this.id,
+     status: {
+        [Op.not]: 'CANCELLED_BY_DRIVER'
+     }
+   }
+ });
+  
+  this.completionRate = totalRides > 0 ? completedRides / totalRides : 0;
+  await this.save();
+};
 
-  return values
-}
+// Update acceptance rate
+Driver.prototype.updateAcceptanceRate = async function () {
+  // This would need to track ride requests vs acceptances
+  // For now, we'll keep it as is and implement proper tracking later
+  await this.save();
+};
 
-Driver.prototype.isOnline = function () {
-  return this.status === 'online'
-}
+// Update rating
+Driver.prototype.updateRating = function (newRating) {
+  const totalRating = this.rating * this.ratingCount + newRating;
+  this.ratingCount += 1;
+  this.rating = totalRating / this.ratingCount;
+};
 
-Driver.prototype.isAvailable = function () {
-  return this.status === 'online' && this.verificationStatus === 'approved'
-}
+// Associations (to be defined elsewhere)
+// Driver.belongsTo(models.User, { foreignKey: 'userId', onDelete: 'CASCADE' });
+// Driver.hasOne(models.Vehicle, { foreignKey: 'driverId', onDelete: 'CASCADE' });
+// Driver.hasMany(models.Ride, { foreignKey: 'driverId', as: 'driverRides' });
+// Driver.hasMany(models.DriverDocument, { foreignKey: 'driverId', onDelete: 'CASCADE' });
 
-Driver.prototype.canAcceptRide = function () {
-  return this.isAvailable() && this.totalRides < this.maxConcurrentRides
-}
-
-// Hooks
-Driver.beforeCreate(async (driver) => {
-  if (driver.licenseExpiry) {
-    driver.licenseExpiry = new Date(driver.licenseExpiry)
-  }
-  if (driver.insuranceExpiry) {
-    driver.insuranceExpiry = new Date(driver.insuranceExpiry)
-  }
-})
-
-Driver.beforeUpdate(async (driver) => {
-  if (driver.changed('licenseExpiry') && driver.licenseExpiry) {
-    driver.licenseExpiry = new Date(driver.licenseExpiry)
-  }
-  if (driver.changed('insuranceExpiry') && driver.insuranceExpiry) {
-    driver.insuranceExpiry = new Date(driver.insuranceExpiry)
-  }
-})
-
-module.exports = Driver
+module.exports = Driver;

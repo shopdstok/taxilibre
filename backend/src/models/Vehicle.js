@@ -1,5 +1,8 @@
-const { DataTypes } = require('sequelize')
-const { sequelize } = require('../config/database')
+// Enhanced Vehicle Model - Matches Specifications
+'use strict';
+
+const { DataTypes } = require('sequelize');
+const { sequelize } = require('../config/database');
 
 const Vehicle = sequelize.define('Vehicle', {
   id: {
@@ -10,6 +13,7 @@ const Vehicle = sequelize.define('Vehicle', {
   driverId: {
     type: DataTypes.UUID,
     allowNull: false,
+    unique: true,
     field: 'driver_id',
     references: {
       model: 'drivers',
@@ -19,23 +23,17 @@ const Vehicle = sequelize.define('Vehicle', {
     onDelete: 'CASCADE'
   },
   type: {
-    type: DataTypes.ENUM('sedan', 'suv', 'van', 'luxury', 'motorcycle', 'electric'),
+    type: DataTypes.ENUM('ECONOMY', 'COMFORT', 'PREMIUM', 'VAN', 'ACCESSIBLE'),
     allowNull: false,
-    defaultValue: 'sedan'
+    field: 'vehicle_type'
   },
   brand: {
-    type: DataTypes.STRING,
-    allowNull: false,
-    validate: {
-      len: [1, 50]
-    }
+    type: DataTypes.STRING(50),
+    allowNull: false
   },
   model: {
-    type: DataTypes.STRING,
-    allowNull: false,
-    validate: {
-      len: [1, 50]
-    }
+    type: DataTypes.STRING(50),
+    allowNull: false
   },
   year: {
     type: DataTypes.INTEGER,
@@ -46,209 +44,88 @@ const Vehicle = sequelize.define('Vehicle', {
     }
   },
   color: {
-    type: DataTypes.STRING,
-    allowNull: false,
-    validate: {
-      len: [2, 30]
-    }
+    type: DataTypes.STRING(30),
+    allowNull: false
   },
-  plateNumber: {
-    type: DataTypes.STRING,
+  licensePlate: {
+    type: DataTypes.STRING(15),
     allowNull: false,
     unique: true,
-    field: 'plate_number',
-    validate: {
-      len: [5, 15]
-    }
+    field: 'license_plate'
   },
-  status: {
-    type: DataTypes.ENUM('active', 'inactive', 'maintenance', 'retired'),
+  seats: {
+    type: DataTypes.INTEGER,
     allowNull: false,
-    defaultValue: 'active'
-  },
-  capacity: {
-    type: DataTypes.DECIMAL(4, 1),
-    allowNull: false,
-    defaultValue: 4.0,
     validate: {
       min: 1,
       max: 8
     }
   },
-  vin: {
-    type: DataTypes.STRING,
-    allowNull: true,
-    validate: {
-      len: [17, 17]
-    }
-  },
-  registrationExpiry: {
-    type: DataTypes.DATEONLY,
-    allowNull: true,
-    field: 'registration_expiry'
-  },
-  insurancePolicy: {
-    type: DataTypes.STRING,
-    allowNull: true,
-    field: 'insurance_policy'
-  },
-  insuranceExpiry: {
-    type: DataTypes.DATEONLY,
-    allowNull: true,
-    field: 'insurance_expiry'
-  },
-  photoUrl: {
-    type: DataTypes.STRING,
-    allowNull: true,
-    field: 'photo_url',
-    validate: {
-      isUrl: true
-    }
-  },
-  baseFare: {
-    type: DataTypes.DECIMAL(8, 2),
-    allowNull: false,
-    defaultValue: 2.50,
-    field: 'base_fare',
-    validate: {
-      min: 0
-    }
-  },
-  pricePerKm: {
-    type: DataTypes.DECIMAL(8, 2),
-    allowNull: false,
-    defaultValue: 1.50,
-    field: 'price_per_km',
-    validate: {
-      min: 0
-    }
-  },
-  pricePerMinute: {
-    type: DataTypes.DECIMAL(8, 2),
-    allowNull: false,
-    defaultValue: 0.25,
-    field: 'price_per_minute',
-    validate: {
-      min: 0
-    }
-  },
-  isVerified: {
+  isAccessible: {
     type: DataTypes.BOOLEAN,
     allowNull: false,
-    defaultValue: true,
-    field: 'is_verified'
+    defaultValue: false,
+    field: 'is_accessible'
   },
-  verificationDocuments: {
-    type: DataTypes.JSON,
+  // Documents
+  registrationDocUrl: {
+    type: DataTypes.STRING(255),
     allowNull: true,
-    defaultValue: [],
-    field: 'verification_documents'
+    field: 'registration_doc_url'
   },
-  lastInspectionDate: {
-    type: DataTypes.DATEONLY,
+  insuranceDocUrl: {
+    type: DataTypes.STRING(255),
     allowNull: true,
-    field: 'last_inspection_date'
+    field: 'insurance_doc_url'
   },
-  nextInspectionDate: {
-    type: DataTypes.DATEONLY,
+  safetyInspectionUrl: {
+    type: DataTypes.STRING(255),
     allowNull: true,
-    field: 'next_inspection_date'
+    field: 'safety_inspection_url'
   },
-  features: {
-    type: DataTypes.JSON,
-    allowNull: true,
-    defaultValue: []
+  createdAt: {
+    type: DataTypes.DATE,
+    allowNull: false,
+    default: DataTypes.NOW,
+    field: 'created_at'
   },
-  mileage: {
-    type: DataTypes.INTEGER,
-    allowNull: true,
-    validate: {
-      min: 0
-    }
+  updatedAt: {
+    type: DataTypes.DATE,
+    allowNull: false,
+    default: DataTypes.NOW,
+    field: 'updated_at'
   }
 }, {
   tableName: 'vehicles',
   timestamps: true,
+  underscored: true,
   createdAt: 'created_at',
   updatedAt: 'updated_at',
   indexes: [
-    {
-      unique: true,
-      fields: ['plate_number']
-    },
-    {
-      fields: ['driver_id']
-    },
-    {
-      fields: ['type']
-    },
-    {
-      fields: ['status']
-    },
-    {
-      fields: ['capacity']
-    }
+    { unique: true, fields: ['licensePlate'] },
+    { fields: ['driverId'] },
+    { fields: ['type'] },
+    { fields: ['isAccessible'] }
   ]
-})
+});
 
 // Instance methods
 Vehicle.prototype.toJSON = function () {
-  const values = Object.assign({}, this.get())
-  return values
-}
+  const values = Object.assign({}, this.get());
+  return values;
+};
 
-Vehicle.prototype.calculatePrice = function (distanceKm, durationMinutes) {
-  const distancePrice = distanceKm * this.pricePerKm
-  const durationPrice = durationMinutes * this.pricePerMinute
-  return this.baseFare + distancePrice + durationPrice
-}
+// Check if vehicle is valid for service
+Vehicle.prototype.isValidForService = function () {
+  const currentYear = new Date().getFullYear();
+  return this.year >= (currentYear - 10) && // Not older than 10 years
+         this.licensePlate && 
+         this.brand && 
+         this.model &&
+         this.seats >= 1;
+};
 
-Vehicle.prototype.isAvailable = function () {
-  return this.status === 'active' && this.isVerified
-}
+// Associations (to be defined elsewhere)
+// Vehicle.belongsTo(models.Driver, { foreignKey: 'driverId', onDelete: 'CASCADE' });
 
-Vehicle.prototype.getVehicleType = function () {
-  const types = {
-    sedan: 'Sedan',
-    suv: 'SUV',
-    van: 'Van',
-    luxury: 'Luxury',
-    motorcycle: 'Motorcycle',
-    electric: 'Electric'
-  }
-
-  return types[this.type] || this.type
-}
-
-// Hooks
-Vehicle.beforeCreate(async (vehicle) => {
-  if (vehicle.registrationExpiry) {
-    vehicle.registrationExpiry = new Date(vehicle.registrationExpiry)
-  }
-  if (vehicle.insuranceExpiry) {
-    vehicle.insuranceExpiry = new Date(vehicle.insuranceExpiry)
-  }
-  if (vehicle.lastInspectionDate) {
-    vehicle.lastInspectionDate = new Date(vehicle.lastInspectionDate)
-  }
-  if (vehicle.nextInspectionDate) {
-    vehicle.nextInspectionDate = new Date(vehicle.nextInspectionDate)
-  }
-})
-
-Vehicle.beforeUpdate(async (vehicle) => {
-  const dateFields = [
-    'registrationExpiry',
-    'insuranceExpiry',
-    'lastInspectionDate',
-    'nextInspectionDate'
-  ]
-
-  dateFields.forEach(field => {
-    if (vehicle.changed(field) && vehicle[field]) {
-      vehicle[field] = new Date(vehicle[field])
-    }
-  })
-})
-
-module.exports = Vehicle
+module.exports = Vehicle;

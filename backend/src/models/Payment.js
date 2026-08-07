@@ -1,5 +1,8 @@
-const { DataTypes } = require('sequelize')
-const { sequelize } = require('../config/database')
+// Enhanced Payment Model - Matches Specifications
+'use strict';
+
+const { DataTypes } = require('sequelize');
+const { sequelize } = require('../config/database');
 
 const Payment = sequelize.define('Payment', {
   id: {
@@ -10,6 +13,7 @@ const Payment = sequelize.define('Payment', {
   rideId: {
     type: DataTypes.UUID,
     allowNull: false,
+    unique: true,
     field: 'ride_id',
     references: {
       model: 'rides',
@@ -21,75 +25,7 @@ const Payment = sequelize.define('Payment', {
   amount: {
     type: DataTypes.DECIMAL(10, 2),
     allowNull: false,
-    validate: {
-      min: 0.01
-    }
-  },
-  paymentMethod: {
-    type: DataTypes.ENUM('cash', 'card', 'wallet', 'apple_pay', 'google_pay'),
-    allowNull: false,
-    field: 'payment_method'
-  },
-  status: {
-    type: DataTypes.ENUM('pending', 'processing', 'completed', 'failed', 'refunded', 'partially_refunded', 'disputed'),
-    allowNull: false,
-    defaultValue: 'pending'
-  },
-  stripePaymentIntentId: {
-    type: DataTypes.STRING,
-    allowNull: true,
-    field: 'stripe_payment_intent_id'
-  },
-  stripeChargeId: {
-    type: DataTypes.STRING,
-    allowNull: true,
-    field: 'stripe_charge_id'
-  },
-  transactionId: {
-    type: DataTypes.STRING,
-    allowNull: true,
-    field: 'transaction_id'
-  },
-  platformFee: {
-    type: DataTypes.DECIMAL(8, 2),
-    allowNull: false,
-    defaultValue: 0.00,
-    field: 'platform_fee',
-    validate: {
-      min: 0
-    }
-  },
-  driverEarnings: {
-    type: DataTypes.DECIMAL(8, 2),
-    allowNull: false,
-    defaultValue: 0.00,
-    field: 'driver_earnings',
-    validate: {
-      min: 0
-    }
-  },
-  failureReason: {
-    type: DataTypes.TEXT,
-    allowNull: true,
-    field: 'failure_reason'
-  },
-  refundReason: {
-    type: DataTypes.TEXT,
-    allowNull: true,
-    field: 'refund_reason'
-  },
-  refundAmount: {
-    type: DataTypes.DECIMAL(8, 2),
-    allowNull: true,
-    field: 'refund_amount',
-    validate: {
-      min: 0
-    }
-  },
-  processedAt: {
-    type: DataTypes.DATE,
-    allowNull: true,
-    field: 'processed_at'
+    comment: 'Amount in currency units (e.g., EUR)'
   },
   currency: {
     type: DataTypes.STRING(3),
@@ -99,98 +35,123 @@ const Payment = sequelize.define('Payment', {
       isIn: ['USD', 'EUR', 'GBP', 'CAD', 'AUD']
     }
   },
-  exchangeRate: {
-    type: DataTypes.DECIMAL(10, 6),
-    allowNull: true,
-    defaultValue: 1.000000,
-    field: 'exchange_rate'
-  },
-  originalAmount: {
-    type: DataTypes.DECIMAL(10, 2),
-    allowNull: true,
-    field: 'original_amount'
-  },
-  paymentProvider: {
-    type: DataTypes.ENUM('stripe', 'paypal', 'square', 'cash'),
+  method: {
+    type: DataTypes.ENUM('CARD', 'CASH', 'WALLET', 'PAYPAL', 'APPLE_PAY', 'GOOGLE_PAY'),
     allowNull: false,
-    defaultValue: 'stripe',
-    field: 'payment_provider'
+    field: 'payment_method'
   },
-  metadata: {
-    type: DataTypes.JSON,
+  status: {
+    type: DataTypes.ENUM('PENDING', 'AUTHORIZED', 'CAPTURED', 'FAILED', 'REFUNDED', 'DISPUTED'),
+    allowNull: false,
+    defaultValue: 'PENDING'
+  },
+  // Stripe specific fields
+  stripePaymentIntentId: {
+    type: DataTypes.STRING(255),
     allowNull: true,
-    defaultValue: {}
+    field: 'stripe_payment_intent_id'
+  },
+  stripeChargeId: {
+    type: DataTypes.STRING(255),
+    allowNull: true,
+    field: 'stripe_charge_id'
+  },
+  stripeTransferId: {
+    type: DataTypes.STRING(255),
+    allowNull: true,
+    field: 'stripe_transfer_id'
+  },
+  // Platform fees
+  platformFee: {
+    type: DataTypes.DECIMAL(8, 2),
+    allowNull: false,
+    field: 'platform_fee'
+  },
+  // Driver earnings from this payment
+  driverEarnings: {
+    type: DataTypes.DECIMAL(8, 2),
+    allowNull: false,
+    field: 'driver_earings'
+  },
+  // Processing info
+  processedAt: {
+    type: DataTypes.DATE,
+    allowNull: true,
+    field: 'processed_at'
+  },
+  failureReason: {
+    type: DataTypes.STRING(255),
+    allowNull: true,
+    field: 'failure_reason'
+  },
+  // Dispute/refund info
+  refundedAmount: {
+    type: DataTypes.DECIMAL(10, 2),
+    allowNull: false,
+    defaultValue: 0.00,
+    field: 'refunded_amount'
+  },
+  refundReason: {
+    type: DataTypes.STRING(255),
+    allowNull: true,
+    field: 'refund_reason'
+  },
+  disputedAmount: {
+    type: DataTypes.DECIMAL(10, 2),
+    allowNull: false,
+    defaultValue: 0.00,
+    field: 'disputed_amount'
+  },
+  disputeReason: {
+    type: DataTypes.STRING(255),
+    allowNull: true,
+    field: 'dispute_reason'
+  },
+  createdAt: {
+    type: DataTypes.DATE,
+    allowNull: false,
+    default: DataTypes.NOW,
+    field: 'created_at'
+  },
+  updatedAt: {
+    type: DataTypes.DATE,
+    allowNull: false,
+    default: DataTypes.NOW,
+    field: 'updated_at'
   }
 }, {
   tableName: 'payments',
   timestamps: true,
+  underscored: true,
   createdAt: 'created_at',
   updatedAt: 'updated_at',
   indexes: [
-    {
-      unique: true,
-      fields: ['ride_id']
-    },
-    {
-      fields: ['status']
-    },
-    {
-      fields: ['payment_method']
-    },
-    {
-      fields: ['stripe_payment_intent_id']
-    },
-    {
-      fields: ['processed_at']
-    }
+    { unique: true, fields: ['rideId'] },
+    { fields: ['status'] },
+    { fields: ['stripePaymentIntentId'] },
+    { fields: ['stripeChargeId'] },
+    { fields: ['currency'] }
   ]
-})
+});
 
 // Instance methods
 Payment.prototype.toJSON = function () {
-  const values = Object.assign({}, this.get())
-  return values
-}
+  const values = Object.assign({}, this.get());
+  return values;
+};
 
-Payment.prototype.isCompleted = function () {
-  return this.status === 'completed'
-}
-
-Payment.prototype.isFailed = function () {
-  return this.status === 'failed'
-}
-
-Payment.prototype.isRefunded = function () {
-  return ['refunded', 'partially_refunded'].includes(this.status)
-}
-
+// Check if payment can be refunded
 Payment.prototype.canBeRefunded = function () {
-  return this.status === 'completed' && !this.isRefunded()
-}
+  return this.status === 'CAPTURED' && 
+         this.refundedAmount < this.amount;
+};
 
-Payment.prototype.getNetAmount = function () {
-  return this.amount - this.platformFee
-}
+// Calculate refundable amount
+Payment.prototype.getRefundableAmount = function () {
+  return this.amount - this.refundedAmount;
+};
 
-Payment.prototype.getDriverNetEarnings = function () {
-  return this.driverEarnings
-}
+// Associations (to be defined elsewhere)
+// Payment.belongsTo(models.Ride, { foreignKey: 'rideId', onDelete: 'CASCADE' });
 
-// Hooks
-Payment.beforeCreate(async (payment) => {
-  // Calculate platform fee (15% by default)
-  if (payment.platformFee === 0) {
-    payment.platformFee = payment.amount * 0.15
-    payment.driverEarnings = payment.amount - payment.platformFee
-  }
-})
-
-Payment.beforeUpdate(async (payment) => {
-  // Recalculate fees if amount changes
-  if (payment.changed('amount')) {
-    payment.platformFee = payment.amount * 0.15
-    payment.driverEarnings = payment.amount - payment.platformFee
-  }
-})
-
-module.exports = Payment
+module.exports = Payment;

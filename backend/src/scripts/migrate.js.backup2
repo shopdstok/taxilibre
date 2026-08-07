@@ -1,0 +1,76 @@
+'use strict';
+
+/**
+ * Migration Script: Create/Update TaxiLibre Database Schema
+ * Uses Sequelize sync to create/update tables based on models
+ */
+
+const path = require('path');
+const { logger } = require('../services/loggingService');
+
+// Import dynamique pour éviter les erreurs circulaires
+let sequelize;
+
+async function migrate() {
+  try {
+    // Import de la configuration de la base de données
+    ({ sequelize } = require('../src/config/database'));
+
+    // Test de la connexion
+    console.log('[MIGRATION] Testing database connection...');
+    const connected = await sequelize.authenticate();
+    if (!connected) {
+      throw new Error('Failed to connect to database');
+    }
+    console.log('[MIGRATION] � ✓ Database connection successful');
+
+    // Synchronisation des modèles (création/mise à jour des tables)
+    console.log('[MIGRATION] Synchronizing models with database...');
+    // Using alter: true to update existing tables without losing data
+    await sequelize.sync({ alter: true });
+    console.log('[MIGRATION] � ✓ Models synchronized successfully');
+
+    // Afficher un résumé des tables créées/mises à jour
+    console.log('[MIGRATION] Migration completed successfully');
+    console.log('[MIGRATION] Created/updated tables:');
+    console.log('[MIGRATION]   - users');
+    console.log('[MIGRATION]   - drivers');
+    console.log('[MIGRATION]   - vehicles');
+    console.log('[MIGRATION]   - rides');
+    console.log('[MIGRATION]   - payments');
+    console.log('[MIGRATION]   - ratings');
+    console.log('[MIGRATION]   - promotions');
+    console.log('[MIGRATION]   - Plus existing tables from previous version');
+
+    return true;
+  } catch (error) {
+    console.error('[MIGRATION] � ✗ Migration failed:', error.message);
+    // Ne pas bloquer le démarrage de l'application en cas d'échec de migration
+    // Mais logger l'erreur pour debugging
+    const { logger } = require('../services/loggingService');
+    logger.error('[MIGRATION] Migration failed:', error);
+    return false;
+  }
+}
+
+// Exporter la fonction pour utilisation dans d'autres scripts
+module.exports = migrate;
+
+// Exécution directe : node scripts/migrate.js
+if (require.main === module) {
+  migrate()
+    .then(success => {
+      if (success) {
+        console.log('[MIGRATION] Process completed');
+        process.exit(0);
+      } else {
+        console.log('[MIGRATION] Process completed with errors');
+        process.exit(1);
+      }
+    })
+    .catch(err => {
+      console.error('[MIGRATION] Fatal error:', err.message);
+      process.exit(1);
+    });
+}
+

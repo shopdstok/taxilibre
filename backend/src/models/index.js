@@ -1,101 +1,115 @@
-const { sequelize } = require('../config/database')
+// Enhanced Models Index - Defines Associations
+'use strict';
 
-const User = require('./User')
-const Driver = require('./Driver')
-const Vehicle = require('./Vehicle')
-const Ride = require('./Ride')
-const Payment = require('./Payment')
-const Review = require('./Review')
-const UserMFA = require('./UserMFA')
-const GeoZone = require('./GeoZone')
-const PushSubscription = require('./PushSubscription')
-const AuditLog = require('./AuditLog')
-const RefreshToken = require('./RefreshToken')
+const fs = require('fs');
+const path = require('path');
+const { Sequelize } = require('sequelize');
+const { sequelize } = require('../config/database');
+const basename = path.basename(__filename);
 
-// Définition des associations entre modèles
-const defineAssociations = () => {
-  // User ↔ Driver
-  User.hasOne(Driver, { foreignKey: 'userId', as: 'driver', onDelete: 'CASCADE' })
-  Driver.belongsTo(User, { foreignKey: 'userId', as: 'user' })
+const db = {};
 
-  // Driver ↔ Vehicle
-  Driver.hasMany(Vehicle, { foreignKey: 'driverId', as: 'vehicles', onDelete: 'CASCADE' })
-  Vehicle.belongsTo(Driver, { foreignKey: 'driverId', as: 'driver' })
+// Import all model files
+fs.readdirSync(__dirname)
+  .filter(file => {
+    return (
+      file.indexOf('.') !== 0 &&
+      file !== basename &&
+      file.slice(-3) === '.js' &&
+      file !== 'index.js'
+    );
+  })
+  .forEach(file => {
+    // Nouveau style : chaque fichier modele fait sequelize.define(...) au
+    // top-level via la config shared et exporte la classe Model 직접
+    // (self-init), pas una factory function. On require donc direttamente.
+    const model = require(path.join(__dirname, file));
+    if (model && model.name && !db[model.name]) {
+      db[model.name] = model;
+    }
+  });
 
-  // User (passenger) ↔ Ride
-  User.hasMany(Ride, { foreignKey: 'passengerId', as: 'passengerRides', onDelete: 'CASCADE' })
-  Ride.belongsTo(User, { foreignKey: 'passengerId', as: 'passenger' })
+// Define associations
+Object.keys(db).forEach(modelName => {
+  if (db[modelName].associate) {
+    db[modelName].associate(db);
+  }
+});
 
-  // Driver ↔ Ride
-  Driver.hasMany(Ride, { foreignKey: 'driverId', as: 'driverRides', onDelete: 'SET NULL' })
-  Ride.belongsTo(Driver, { foreignKey: 'driverId', as: 'driver' })
+db.sequelize = sequelize;
+db.Sequelize = Sequelize;
 
-  // Vehicle ↔ Ride
-  Vehicle.hasMany(Ride, { foreignKey: 'vehicleId', as: 'rides', onDelete: 'SET NULL' })
-  Ride.belongsTo(Vehicle, { foreignKey: 'vehicleId', as: 'vehicle' })
+// Define all associations as per specifications
 
-  // Ride ↔ Payment
-  Ride.hasOne(Payment, { foreignKey: 'rideId', as: 'payment', onDelete: 'CASCADE' })
-  Payment.belongsTo(Ride, { foreignKey: 'rideId', as: 'ride' })
+// User associations
+db.User.hasMany(db.Profile, { foreignKey: 'userId', onDelete: 'CASCADE' });
+db.User.hasMany(db.Ride, { foreignKey: 'passengerId', as: 'passengerRides', onDelete: 'SET NULL' });
+db.User.hasMany(db.Ride, { foreignKey: 'driverId', as: 'driverRides', onDelete: 'SET NULL' });
+db.User.hasMany(db.Payment, { foreignKey: 'userId', onDelete: 'CASCADE' });
+db.User.hasMany(db.Rating, { foreignKey: 'fromUserId', as: 'ratingsGiven', onDelete: 'CASCADE' });
+db.User.hasMany(db.Rating, { foreignKey: 'toUserId', as: 'ratingsReceived', onDelete: 'CASCADE' });
+db.User.hasMany(db.RefreshToken, { foreignKey: 'userId', onDelete: 'CASCADE' });
+db.User.hasMany(db.PromotionUsage, { foreignKey: 'userId', onDelete: 'CASCADE' });
+db.User.hasMany(db.Notification, { foreignKey: 'userId', onDelete: 'CASCADE' }); // Added
+db.User.hasMany(db.PaymentMethod, { foreignKey: 'userId', onDelete: 'CASCADE' }); // Added
 
-  // Ride ↔ Review
-  Ride.hasOne(Review, { foreignKey: 'rideId', as: 'review', onDelete: 'CASCADE' })
-  Review.belongsTo(Ride, { foreignKey: 'rideId', as: 'ride' })
+// Profile associations
+db.Profile.belongsTo(db.User, { foreignKey: 'userId', onDelete: 'CASCADE' });
 
-  // User ↔ Review (passenger)
-  User.hasMany(Review, { foreignKey: 'passengerId', as: 'passengerReviews', onDelete: 'CASCADE' })
-  Review.belongsTo(User, { foreignKey: 'passengerId', as: 'passenger' })
+// Driver associations
+db.Driver.belongsTo(db.User, { foreignKey: 'userId', onDelete: 'CASCADE' });
+db.Driver.hasMany(db.Vehicle, { foreignKey: 'driverId', onDelete: 'CASCADE' });
+db.Driver.hasMany(db.Ride, { foreignKey: 'driverId', as: 'driverRides', onDelete: 'SET NULL' });
+db.Driver.hasMany(db.Payment, { foreignKey: 'driverId', onDelete: 'CASCADE' });
+db.Driver.hasMany(db.DriverDocument, { foreignKey: 'driverId', onDelete: 'CASCADE' });
+db.Driver.hasMany(db.Rating, { foreignKey: 'toUserId', as: 'driverRatings', onDelete: 'CASCADE' }); // Drivers are rated by passengers
 
-  // Driver ↔ Review
-  Driver.hasMany(Review, { foreignKey: 'driverId', as: 'driverReviews', onDelete: 'CASCADE' })
-  Review.belongsTo(Driver, { foreignKey: 'driverId', as: 'driver' })
+// Vehicle associations
+db.Vehicle.belongsTo(db.Driver, { foreignKey: 'driverId', onDelete: 'CASCADE' });
+db.Vehicle.hasMany(db.Ride, { foreignKey: 'vehicleId', onDelete: 'SET NULL' });
 
-  // User ↔ Review (moderator)
-  User.hasMany(Review, { foreignKey: 'moderatedBy', as: 'moderatedReviews', onDelete: 'SET NULL' })
-  Review.belongsTo(User, { foreignKey: 'moderatedBy', as: 'moderator' })
+// DriverDocument associations
+db.DriverDocument.belongsTo(db.Driver, { foreignKey: 'driverId', onDelete: 'CASCADE' });
 
-  // User ↔ AuditLog (admin)
-  User.hasMany(AuditLog, { foreignKey: 'adminId', as: 'adminAuditLogs', onDelete: 'SET NULL' })
-  AuditLog.belongsTo(User, { foreignKey: 'adminId', as: 'admin' })
+// Ride associations
+db.Ride.belongsTo(db.User, { foreignKey: 'passengerId', as: 'passenger', onDelete: 'SET NULL' });
+db.Ride.belongsTo(db.User, { foreignKey: 'driverId', as: 'driver', onDelete: 'SET NULL' });
+db.Ride.belongsTo(db.Vehicle, { foreignKey: 'vehicleId', onDelete: 'SET NULL' });
+db.Ride.hasOne(db.Payment, { foreignKey: 'rideId', onDelete: 'CASCADE' });
+db.Ride.hasOne(db.Rating, { foreignKey: 'rideId', onDelete: 'CASCADE' });
+db.Ride.belongsTo(db.Promotion, { foreignKey: 'promoCode', targetKey: 'code', onDelete: 'SET NULL' });
+db.Ride.belongsTo(db.PricingZone, { foreignKey: 'pickupZoneId', onDelete: 'SET NULL' });
+db.Ride.belongsTo(db.PricingZone, { foreignKey: 'dropoffZoneId', onDelete: 'SET NULL' });
 
-  // User ↔ AuditLog (user)
-  User.hasMany(AuditLog, { foreignKey: 'userId', as: 'userAuditLogs', onDelete: 'SET NULL' })
-  AuditLog.belongsTo(User, { foreignKey: 'userId', as: 'user' })
+// Payment associations
+db.Payment.belongsTo(db.Ride, { foreignKey: 'rideId', onDelete: 'CASCADE' });
+db.Payment.belongsTo(db.User, { foreignKey: 'userId', onDelete: 'CASCADE' }); // Added for direct user reference
 
-  // User ↔ RefreshToken
-  User.hasMany(RefreshToken, { foreignKey: 'userId', as: 'refreshTokens' })
-  RefreshToken.belongsTo(User, { foreignKey: 'userId', as: 'user' })
-}
+// PaymentMethod associations
+db.PaymentMethod.belongsTo(db.User, { foreignKey: 'userId', onDelete: 'CASCADE' });
+db.User.hasMany(db.PaymentMethod, { foreignKey: 'userId', onDelete: 'CASCADE' }); // Added
 
-// Appliquer les associations
-defineAssociations()
+// Rating associations
+db.Rating.belongsTo(db.Ride, { foreignKey: 'rideId', onDelete: 'CASCADE' });
+db.Rating.belongsTo(db.User, { foreignKey: 'fromUserId', as: 'rater', onDelete: 'CASCADE' });
+db.Rating.belongsTo(db.User, { foreignKey: 'toUserId', as: 'ratedUser', onDelete: 'CASCADE' });
+db.Rating.belongsTo(db.User, { foreignKey: 'reviewedBy', onDelete: 'SET NULL' }); // Moderator who reviewed
 
-// Exporter tous les modèles et l'instance Sequelize
-module.exports = {
-  sequelize,
+// Promotion associations
+db.Promotion.hasMany(db.Ride, { foreignKey: 'promoCode', sourceKey: 'code', onDelete: 'SET NULL' });
+// PromotionUsage would be a separate model for tracking individual uses
 
-  // Status constants (used by matchingService, rideController, etc.)
-  RideStatus: {
-    REQUESTED: 'requested',
-    ACCEPTED: 'accepted',
-    DRIVER_ARRIVING: 'driver_arriving',
-    DRIVER_ARRIVED: 'driver_arrived',
-    RIDE_STARTED: 'ride_started',
-    RIDE_COMPLETED: 'ride_completed',
-    CANCELLED: 'cancelled',
-    NO_DRIVER_AVAILABLE: 'no_driver_available',
-    EXPIRED: 'expired'
-  },
+// PricingZone associations
+db.PricingZone.hasMany(db.Ride, { foreignKey: 'pickupZoneId', onDelete: 'SET NULL' });
+db.PricingZone.hasMany(db.Ride, { foreignKey: 'dropoffZoneId', onDelete: 'SET NULL' });
 
-  User,
-  RefreshToken,
-  Driver,
-  Vehicle,
-  Ride,
-  Payment,
-  Review,
-  UserMFA,
-  GeoZone,
-  PushSubscription,
-  AuditLog
-}
+// RefreshToken associations
+db.RefreshToken.belongsTo(db.User, { foreignKey: 'userId', onDelete: 'CASCADE' });
+
+// Notification associations
+db.Notification.belongsTo(db.User, { foreignKey: 'userId', onDelete: 'CASCADE' });
+db.Notification.belongsTo(db.Ride, { foreignKey: 'rideId', onDelete: 'SET NULL' });
+db.Notification.belongsTo(db.Payment, { foreignKey: 'paymentId', onDelete: 'SET NULL' });
+db.Notification.belongsTo(db.Promotion, { foreignKey: 'promotionId', onDelete: 'SET NULL' });
+
+module.exports = db;
