@@ -1,11 +1,11 @@
 const { Payment, Ride, PaymentStatus, PaymentMethod, Driver } = require('../models')
 const { sendSuccess, sendError } = require('../utils/response')
-const { 
-  stripe, 
-  createPaymentIntent as createStripePaymentIntent,
+const {
+  stripe,
+  createPaymentIntent: createStripePaymentIntent,
   confirmPaymentIntent,
   retrievePaymentIntent,
-  createRefund as createStripeRefund,
+  createRefund: createStripeRefund,
   constructWebhookEvent,
   createConnectAccount,
   getAccountLink,

@@ -1,0 +1,11 @@
+{
+  "remoteName": "origin",
+  "projects": [
+    {
+      "id": "prj_rOIlCXxCCSLtxm9g3m6N5VOg3Rl5",
+      "name": "passenger-web",
+      "directory": "apps/passenger-web",
+      "orgId": "team_BqbMVFeIjvtkCcTnH4G6T0zN"
+    }
+  ]
+}

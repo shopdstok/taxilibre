@@ -306,7 +306,10 @@ class PricingService {
 
       return this.calculatePromoDiscount(totalPrice, promo)
     } catch (error) {
-      logger.warn('Erreur lors de l''application du code promo', { error, promoCode })
+      logger.warn("Erreur lors de l'application du code promo", {
+  error,
+  promoCode
+});
       return { isValid: false, finalPrice: totalPrice }
     }
   }

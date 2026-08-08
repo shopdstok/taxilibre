@@ -435,7 +435,7 @@ const getRevenueAnalytics = async (req, res, next) => {
         const startOfWeek = new Date(now)
         startOfWeek.setDate(startOfWeek.getDate() - startOfWeek.getDay())
         whereClause.createdAt = {
-          [Op.gte]: Друг: new Date(startOfWeek.setHours(0,0,0,0)),
+          [Op.gte]: new Date(startOfWeek.setHours(0,0,0,0)),
           [Op.lt]: new Date(now)
         }
       } else if (period === 'this_month') {

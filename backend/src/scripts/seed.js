@@ -10,7 +10,7 @@
  */
 
 const path = require('path');
-const { logger } = require('../src/services/loggingService');
+const { logger } = require('./services/loggingService');
 const bcrypt = require('bcryptjs');
 
 // Import dynamique pour éviter les erreurs circulaires
@@ -54,7 +54,7 @@ async function seed() {
       role: 'admin',
       isVerified: true
     }, { transaction });
-    console.log([SEEDER] ��� � � ✓ Admin created: );
+    console.log('[SEEDER] Admin created: ' + admin.email);
 
     // 2. Créer les passagers
     console.log('[SEEDER] Creating passengers...');
@@ -62,16 +62,16 @@ async function seed() {
     for (let i = 1; i <= 5; i++) {
       const password = await bcrypt.hash(passengerpass, 12);
       const passenger = await User.create({
-        email: passenger@taxilibre.com,
+        email: 'passenger${i}@taxilibre.com',
         passwordHash: password,
-        firstName: Passenger,
-        lastName: ${i},
-        phone: +336000000,
+        firstName: 'Passenger${i}',
+        lastName: '${i}',
+        phone: '+336000000',
         role: 'passenger',
         isVerified: true
       }, { transaction });
       passengers.push(passenger);
-      console.log([SEEDER] ��� � � ✓ Passenger  created: );
+      console.log('[SEEDER] Passenger created: ' + passenger.email);
     }
 
     // 3. Créer les conducteurs avec véhicules
@@ -83,11 +83,11 @@ async function seed() {
       // Créer l'utilisateur conducteur
       const driverPassword = await bcrypt.hash(driverpass, 12);
       const driverUser = await User.create({
-        email: driver@taxilibre.com,
+        email: 'driver${i}@taxilibre.com',
         passwordHash: driverPassword,
-        firstName: Driver,
-        lastName: ${i},
-        phone: +336000001,
+        firstName: 'Driver${i}',
+        lastName: '${i}',
+        phone: '+336000001',
         role: 'driver',
         isVerified: true
       }, { transaction });
@@ -110,14 +110,14 @@ async function seed() {
         brand: i === 1 ? 'Toyota' : 'Honda',
         model: i === 1 ? 'Prius' : 'Civic',
         color: i === 1 ? 'Blue' : 'Red',
-        plateNumber: TAXI001,
+        plateNumber: 'TAXI00${i}',
         year: 2020 + i,
         seats: 4,
         isApproved: true
       }, { transaction });
       vehicles.push(vehicle);
       
-      console.log([SEEDER] ��� � � ✓ Driver  and vehicle created);
+      console.log('[SEEDER] Driver and vehicle created: ' + driverUser.email);
     }
 
     // 4. Créer quelques promotions
@@ -136,7 +136,7 @@ async function seed() {
       isActive: true
     }, { transaction });
     promotions.push(promo1);
-    console.log([SEEDER] ��� � � ✓ Promotion created: );
+    console.log('[SEEDER] Promotion created: ' + promo1.code);
 
     // Promotion 2€ de réduction
     const promo2 = await Promotion.create({
@@ -150,7 +150,7 @@ async function seed() {
       isActive: true
     }, { transaction });
     promotions.push(promo2);
-    console.log([SEEDER] ��� � � ✓ Promotion created: );
+    console.log('[SEEDER] Promotion created: ' + promo2.code);
 
     // 5. Créer des courses de test
     console.log('[SEEDER] Creating test rides...');
@@ -174,17 +174,17 @@ async function seed() {
       completedAt: new Date(Date.now() - 86400000 * 2 + 300) // Il y a 2 jours + 5 min
     }, { transaction });
     rides.push(ride1);
-    console.log([SEEDER] ��� � � ✓ Completed ride created);
+    console.log('[SEEDER] Completed ride created: ' + ride1.id);
 
     // Créer le paiement pour la course 1
     await Payment.create({
       rideId: ride1.id,
-      stripePaymentIntentId: pi_test_,
+      stripePaymentIntentId: 'pi_test_' + ride1.id,
       amountCents: 450,
       currency: 'EUR',
       status: 'succeeded'
     }, { transaction });
-    console.log([SEEDER] ��� � � ✓ Payment created for completed ride);
+    console.log('[SEEDER] Payment created for completed ride: ' + ride1.id);
 
     // Créer une évaluation pour la course 1 (passenger -> driver)
     await Rating.create({
@@ -194,7 +194,7 @@ async function seed() {
       score: 5,
       comment: 'Excellent service, very professional driver!'
     }, { transaction });
-    console.log([SEEDER] ��� � � ✓ Rating created for completed ride);
+    console.log('[SEEDER] Rating created for completed ride: ' + ride1.id);
 
     // Course 2: Annulée
     const ride2 = await Ride.create({
@@ -213,7 +213,7 @@ async function seed() {
       cancelledAt: new Date(Date.now() - 86400000) // Hier
     }, { transaction });
     rides.push(ride2);
-    console.log([SEEDER] ��� � � ✓ Cancelled ride created);
+    console.log('[SEEDER] Cancelled ride created: ' + ride2.id);
 
     // Course 3: En attente
     const ride3 = await Ride.create({
@@ -231,29 +231,28 @@ async function seed() {
       paymentStatus: 'pending'
     }, { transaction });
     rides.push(ride3);
-    console.log([SEEDER] ��� � � ✓ Requested ride created);
+    console.log('[SEEDER] Requested ride created: ' + ride3.id);
 
     // Valider la transaction
     await transaction.commit();
-    console.log('[SEEDER] ��� � � ✓ Transaction committed successfully');
+    console.log('[SEEDER] Transaction committed successfully');
 
     // Afficher le résumé
-    console.log('\n[SEEDER] ��� � Seeding completed successfully!');
-    console.log('[SEEDER] ��� � Summary:');
-    console.log([SEEDER]    • 1 admin user);
-    console.log([SEEDER]    •  passengers);
-    console.log([SEEDER]    •  drivers with vehicles);
-    console.log([SEEDER]    •  promotions);
-    console.log([SEEDER]    •  rides);
-    console.log([SEEDER]    • 1 payment);
-    console.log([SEEDER]    • 1 rating);
+    console.log('\n[SEEDER] Seeding completed successfully!');
+    console.log('[SEEDER] Summary:');
+    console.log('[SEEDER]    • 1 admin user');
+    console.log('[SEEDER]    • ' + passengers.length + ' passengers');
+    console.log('[SEEDER]    • ' + drivers.length + ' drivers with vehicles');
+    console.log('[SEEDER]    • ' + promotions.length + ' promotions');
+    console.log('[SEEDER]    • ' + rides.length + ' rides');
+    console.log('[SEEDER]    • 1 payment');
+    console.log('[SEEDER]    • 1 rating');
 
     return true;
   } catch (error) {
     // Annuler la transaction en cas d'erreur
     if (transaction) await transaction.rollback();
-    console.error('[SEEDER] ��� � � ✗ Seeding failed:', error.message);
-    const { logger } = require('../src/services/loggingService');
+    console.error('[SEEDER] Seeding failed:', error.message);
     logger.error('[SEEDER] Seeding failed:', error);
     return false;
   }
